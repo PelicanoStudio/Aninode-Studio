@@ -1,0 +1,146 @@
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(10, 10, 10, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.playButton {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.playButton:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.controlButton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.controlButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.timeDisplay {
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  color: #aaa;
+}
+
+.timelineWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ruler {
+  height: 30px;
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.tick {
+  flex: 1;
+  min-width: 100px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  padding-left: 4px;
+}
+
+.tick span {
+  font-size: 10px;
+  color: #666;
+}
+
+.timeline {
+  flex: 1;
+  position: relative;
+  cursor: pointer;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 99px,
+      rgba(255,255,255,0.05) 99px,
+      rgba(255,255,255,0.05) 100px
+    );
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #007aff;
+  box-shadow: 0 0 8px rgba(0, 122, 255, 0.5);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  background: #007aff;
+  border-radius: 50%;
+}
+
+.tracks {
+  display: flex;
+  flex-direction: column;
+}
+
+.track {
+  height: 40px;
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.trackLabel {
+  width: 150px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #aaa;
+  background: rgba(0, 0, 0, 0.3);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.trackContent {
+  flex: 1;
+  position: relative;
+}
