@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useMotionValue, animate } from 'framer-motion'
+import gsap from 'gsap'
 import { aninodeStore } from '@core/store'
 import { useNodeRegistration } from '@core/useNodeRegistration'
 
@@ -38,6 +38,14 @@ export type OpacityNodeProps = {
 // Auto-mapping preset for ObjectPicker
 const AUTO_MAPPING_PRESET = {
   opacity: 'opacity',
+}
+
+// Map easing names to GSAP equivalents
+const GSAP_EASING_MAP: Record<string, string> = {
+  linear: 'none',
+  easeIn: 'power2.in',
+  easeOut: 'power2.out',
+  easeInOut: 'power2.inOut',
 }
 
 export function OpacityNode({
@@ -87,8 +95,9 @@ export function OpacityNode({
   // Register node
   useNodeRegistration(id, 'OpacityNode' as any, baseProps)
 
-  // Animation state
-  const opacity = useMotionValue(staticOpacity)
+  // Animation state - plain object for GSAP
+  const stateRef = useRef({ opacity: staticOpacity })
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
   const lastPublished = useRef<number>(staticOpacity)
 
   // Publish auto-mapping preset
@@ -116,6 +125,12 @@ export function OpacityNode({
   useEffect(() => {
     if (!id) return
 
+    // Kill any existing tween
+    if (tweenRef.current) {
+      tweenRef.current.kill()
+      tweenRef.current = null
+    }
+
     // Helper: Publish opacity value
     const publishOpacity = (value: number) => {
       let finalValue = Math.round(value * 1000) / 1000
@@ -133,7 +148,7 @@ export function OpacityNode({
 
     // MODE 1: Static
     if (mode === 'Static') {
-      opacity.set(staticOpacity)
+      stateRef.current.opacity = staticOpacity
       publishOpacity(staticOpacity)
       return
     }
@@ -175,18 +190,23 @@ export function OpacityNode({
           break
       }
 
-      opacity.set(effectStart)
+      stateRef.current.opacity = effectStart
+      const gsapEasing = GSAP_EASING_MAP[easing] || 'power2.inOut'
 
-      const controls = animate(opacity, effectEnd, {
+      tweenRef.current = gsap.to(stateRef.current, {
+        opacity: effectEnd,
         duration: effectDuration,
-        ease: easing,
-        repeat: effectLoop ? Infinity : 0,
-        repeatType: effectYoyo ? 'reverse' : 'loop',
-        onUpdate: (latest) => publishOpacity(latest),
+        ease: gsapEasing,
+        repeat: effectLoop ? -1 : 0,
+        yoyo: effectYoyo,
+        onUpdate: () => publishOpacity(stateRef.current.opacity),
       })
 
       return () => {
-        controls.stop()
+        if (tweenRef.current) {
+          tweenRef.current.kill()
+          tweenRef.current = null
+        }
       }
     }
 
@@ -200,7 +220,7 @@ export function OpacityNode({
         if (inputValue !== undefined) {
           // Formula: baseOpacity + (inputValue * multiplier) + offset
           const result = baseOpacity + (inputValue * multiplier) + offset
-          opacity.set(result)
+          stateRef.current.opacity = result
           publishOpacity(result)
         }
       }
@@ -214,7 +234,7 @@ export function OpacityNode({
     }
 
     // Fallback
-    publishOpacity(opacity.get())
+    publishOpacity(stateRef.current.opacity)
   }, [
     id,
     mode,
@@ -230,10 +250,20 @@ export function OpacityNode({
     blinkSpeed,
     inputNodeId,
     inputProperty,
+    baseOpacity,
     multiplier,
     offset,
     clamp,
   ])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (tweenRef.current) {
+        tweenRef.current.kill()
+      }
+    }
+  }, [])
 
   return null
 }

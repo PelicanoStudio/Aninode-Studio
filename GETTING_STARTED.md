@@ -2,9 +2,9 @@
 
 ## What's Been Built
 
-Your Aninode MVP now has a solid foundation:
+Your Aninode MVP now has a solid GSAP-powered foundation:
 
-### ✅ Completed
+### Completed
 
 1. **Project Structure**
    - Modern React + TypeScript + Vite setup
@@ -17,25 +17,24 @@ Your Aninode MVP now has a solid foundation:
    - Property resolution (3-level hierarchy)
    - Type definitions for all core concepts
 
-3. **UI Layout**
-   - Professional 4-panel layout (Node Editor, Viewport, Properties, Timeline)
-   - Responsive design with collapsible panels
-   - Top navigation bar with tools and controls
-   - Modern dark theme with glassmorphism effects
+3. **Animation Engine: GSAP**
+   - All nodes migrated from Framer Motion to GSAP
+   - Frame-perfect timeline seeking capability
+   - Ready for video export pipeline
+   - Smaller bundle size for exports
 
-4. **Components**
-   - **Node Editor**: Library of node types + active node list
-   - **Viewport**: Scene preview with zoom controls
-   - **Properties Panel**: Inspect and edit selected nodes/layers
-   - **Timeline**: Playback controls and time navigation
-   - **Top Bar**: Global tools and import/export buttons
+4. **Working Nodes**
+   - **RotationNode**: Static/Animated/Controlled modes, GSAP-powered
+   - **ScaleNode**: Uniform/non-uniform, multiple easings
+   - **OpacityNode**: fadeIn, fadeOut, pulse, blink effects
+   - **LFONode**: sine, triangle, square, sawtooth, noise waveforms
 
-5. **Features**
-   - Scene import from Photoshop JSON exports
-   - Node creation and selection
-   - Layer visualization
-   - Basic timeline playback controls
-   - Zoom and pan (partial)
+5. **UI Layout**
+   - Professional 4-panel layout
+   - Node Tester playground for testing nodes
+   - Multi-node support with LFO connections
+
+---
 
 ## Quick Start
 
@@ -54,271 +53,291 @@ npm run dev
 
 The app will open at `http://localhost:3000`
 
-### 3. Import a Test Scene
+### 3. Test Nodes
 
-1. Prepare a directory with:
-   - `data.json` (scene configuration)
-   - Image files (PNG, JPG, etc.)
+Navigate to the Node Tester (`/tester` or click the test button):
+1. Click node type buttons to add nodes (Rotation, Scale, Opacity, LFO)
+2. Select a node from the chips to edit its properties
+3. Watch the preview box animate
+4. Try connecting LFO to other nodes via "Controlled" mode
 
-2. Click "📁 Import" in the top-right
-3. Select your scene directory
-4. Your scene will load in the viewport
+---
 
-## What's Next?
+## Architecture
 
-### Immediate Next Steps (Phase 2)
+### Animation Engine
 
-The MVP foundation is ready. Here's what to build next:
+**GSAP** is the sole animation engine. All nodes use GSAP tweens:
 
-#### 1. **Implement Core Nodes** (2-3 days)
-Each node type needs its implementation:
+```typescript
+// Example: Creating a GSAP tween in a node
+const tweenRef = useRef<gsap.core.Tween | null>(null)
 
-- **LFO Node** (`src/nodes/LFO/index.tsx`)
-  - Copy logic from existing `LFO_Node_01-11.tsx`
-  - Remove Framer-specific code
-  - Hook up to the store
+useEffect(() => {
+  tweenRef.current = gsap.to(stateRef.current, {
+    rotation: 360,
+    duration: 2,
+    repeat: -1,  // Infinite
+    ease: 'none',
+    onUpdate: () => {
+      aninodeStore.nodes[id].outputs.rotation = stateRef.current.rotation
+    }
+  })
 
-- **SceneAnimator Node** (`src/nodes/SceneAnimator/index.tsx`)
-  - Port animation logic from `SceneExporter.tsx`
-  - Remove `addPropertyControls` and Framer Motion
-  - Use pure Framer Motion library instead
-  - Implement path animation
-  - Add lighting system
-
-- **ObjectPicker Node** (`src/nodes/ObjectPicker/index.tsx`)
-  - Port connection logic
-  - Implement data routing
-
-- **LightController Node** (`src/nodes/LightController/index.tsx`)
-  - Port light animation
-  - Support path-based movement
-
-#### 2. **Visual Node Editor** (2-3 days)
-- Install React Flow: `npm install reactflow`
-- Create `src/components/NodeGraph` component
-- Implement drag-and-drop for nodes
-- Add visual connections (cables)
-- Hook up to the store
-
-#### 3. **Path Drawing Tools** (2-3 days)
-- Extract drawing logic from `WebEnginePrototype.tsx`
-- Create `src/components/PathDrawer` component
-- Implement Bezier curve editor
-- Add keyboard shortcuts (P for draw mode, Enter to save)
-
-#### 4. **Scene Exporter** (1-2 days)
-- Create export functionality
-- Bundle scene + code + assets
-- Generate standalone HTML file
-- Test exported projects
-
-### Recommended Development Order
-
-```
-Week 1:
-├─ Day 1-2: Implement core node types
-├─ Day 3-4: Port SceneAnimator with animations
-└─ Day 5: Test and debug nodes
-
-Week 2:
-├─ Day 1-2: Build visual node editor
-├─ Day 3-4: Implement path drawing
-└─ Day 5: Connect everything together
-
-Week 3:
-├─ Day 1-2: Scene export functionality
-├─ Day 3-4: Timeline improvements
-└─ Day 5: Testing and polish
+  return () => tweenRef.current?.kill()
+}, [dependencies])
 ```
 
-## Project Architecture
+### Why GSAP?
 
-### Folder Structure
+| Feature | Benefit |
+|---------|---------|
+| Timeline seeking | Frame-perfect video export |
+| PixiPlugin | Native WebGL integration |
+| No React runtime | Smaller export bundles |
+| Industry standard | Production-proven |
+
+---
+
+## Creating New Nodes
+
+### Basic Template
+
+```typescript
+// src/nodes/MyNode/index.tsx
+import { useEffect, useRef } from 'react'
+import gsap from 'gsap'
+import { aninodeStore } from '@core/store'
+import { useNodeRegistration } from '@core/useNodeRegistration'
+
+export type MyNodeProps = {
+  id: string
+  name?: string
+  mode: 'Static' | 'Animated' | 'Controlled'
+  // ... your props
+}
+
+export function MyNode({ id, name = 'MyNode', mode, ...props }: MyNodeProps) {
+  // 1. Register node
+  useNodeRegistration(id, 'MyNode' as any, { id, name, mode, ...props })
+
+  // 2. State for GSAP (plain object, not React state)
+  const stateRef = useRef({ value: 0 })
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
+
+  // 3. Animation logic
+  useEffect(() => {
+    // Kill previous tween
+    if (tweenRef.current) {
+      tweenRef.current.kill()
+      tweenRef.current = null
+    }
+
+    // Publish helper
+    const publish = (value: number) => {
+      if (aninodeStore.nodes[id]) {
+        aninodeStore.nodes[id].outputs.value = value
+      }
+    }
+
+    // MODE: Static
+    if (mode === 'Static') {
+      publish(props.staticValue)
+      return
+    }
+
+    // MODE: Animated
+    if (mode === 'Animated') {
+      tweenRef.current = gsap.to(stateRef.current, {
+        value: props.endValue,
+        duration: props.duration,
+        ease: 'power2.inOut',
+        repeat: props.loop ? -1 : 0,
+        yoyo: props.yoyo,
+        onUpdate: () => publish(stateRef.current.value),
+      })
+
+      return () => tweenRef.current?.kill()
+    }
+
+    // MODE: Controlled
+    if (mode === 'Controlled' && props.inputNodeId) {
+      const interval = setInterval(() => {
+        const input = aninodeStore.nodes[props.inputNodeId]?.outputs[props.inputProperty]
+        if (input !== undefined) {
+          const result = input * props.multiplier + props.offset
+          publish(result)
+        }
+      }, 16)
+
+      return () => clearInterval(interval)
+    }
+  }, [id, mode, /* other deps */])
+
+  return null // Headless
+}
+```
+
+---
+
+## GSAP Quick Reference
+
+### Easing Names
+
+```typescript
+const GSAP_EASING = {
+  linear: 'none',
+  easeIn: 'power2.in',
+  easeOut: 'power2.out',
+  easeInOut: 'power2.inOut',
+  spring: 'elastic.out(1, 0.3)',
+  bounce: 'bounce.out',
+  back: 'back.out(1.7)',
+}
+```
+
+### Common Patterns
+
+```typescript
+// Infinite loop
+gsap.to(obj, { x: 100, repeat: -1 })
+
+// Ping-pong (yoyo)
+gsap.to(obj, { x: 100, repeat: -1, yoyo: true })
+
+// Delayed start
+gsap.to(obj, { x: 100, delay: 0.5 })
+
+// Stagger (multiple targets)
+gsap.to('.item', { x: 100, stagger: 0.1 })
+
+// Timeline
+const tl = gsap.timeline()
+tl.to(obj, { x: 100, duration: 1 })
+tl.to(obj, { y: 100, duration: 1 })
+
+// Seeking (for video export)
+tl.seek(1.5)  // Jump to 1.5 seconds
+tl.progress(0.5)  // Jump to 50%
+```
+
+---
+
+## Project Structure
 
 ```
 src/
-├── components/          # UI Components
-│   ├── Layout/         # Main layout system
-│   ├── TopBar/         # Navigation bar
-│   ├── NodeEditor/     # Node library sidebar
-│   ├── Viewport/       # Scene preview
-│   ├── PropertiesPanel/ # Property inspector
-│   ├── Timeline/       # Timeline controls
-│   └── NodeGraph/      # (TODO) Visual node editor
+├── core/                    # Engine core
+│   ├── store.ts            # Valtio state
+│   ├── useNodeRegistration.ts
+│   └── resolveProperty.ts
 │
-├── nodes/              # Node Type Implementations
-│   ├── SceneAnimator/  # (TODO) Main animator
-│   ├── LFO/           # (TODO) Oscillator
-│   ├── ObjectPicker/  # (TODO) Connection router
-│   ├── LightController/ # (TODO) Light animation
-│   └── ...            # More node types
+├── nodes/                   # Animation nodes
+│   ├── RotationNode/       # GSAP rotation
+│   ├── ScaleNode/          # GSAP scaling
+│   ├── OpacityNode/        # GSAP opacity
+│   └── LFONode/            # RAF oscillator
 │
-├── core/               # Core Engine
-│   ├── store.ts       # Valtio global state
-│   ├── resolveProperty.ts  # Property resolution
-│   └── useNodeRegistration.ts  # Node lifecycle
+├── components/              # UI
+│   ├── Layout/
+│   ├── Viewport/
+│   └── ...
 │
-├── types/              # TypeScript Types
-│   └── index.ts       # All type definitions
+├── pages/
+│   └── NodeTester.tsx      # Testing playground
 │
-├── utils/              # Utility Functions
-│   └── (TODO)         # Math, helpers, etc.
-│
-├── App.tsx            # Main app component
-└── main.tsx           # Entry point
+└── App.tsx
 ```
 
-### Key Concepts
+---
 
-#### 1. **The Store** (`src/core/store.ts`)
-Central state management using Valtio. Contains:
-- `nodes`: All active nodes
-- `connections`: Visual connections
-- `scene`: Imported scene data
-- `timeline`: Playback state
-- `ui`: UI state
+## What's Next?
 
-#### 2. **Node System**
-Each node:
-- Registers itself on mount
-- Has `baseProps` (from UI), `overrides` (from connections), `outputs` (computed values)
-- Can be connected to other nodes
-- Updates the store reactively
+### Immediate Next Steps
 
-#### 3. **Property Resolution**
-3-level hierarchy:
-1. **Level 1**: Base props (UI sliders, inputs)
-2. **Level 2**: Presets (reusable values)
-3. **Level 3**: Overrides (from node connections)
+1. **More Nodes**
+   - PositionNode (X/Y animation)
+   - DeformationNode (squash, stretch, skew)
+   - ColorNode (tint, color animation)
 
-Use `resolveProperty()` to get the final value.
+2. **Scene Integration**
+   - ObjectPickerNode (select layers)
+   - SceneAnimatorNode (apply nodes to scene)
 
-## Common Tasks
+3. **Visual Node Editor**
+   - Install React Flow
+   - Drag-and-drop nodes
+   - Visual connections
 
-### Adding a New Node Type
+### Future Features
 
-1. Create `src/nodes/MyNode/index.tsx`:
+- GSAP Timeline UI with scrubbing
+- Video export (FFmpeg.wasm)
+- PixiJS renderer integration
+- Sprite atlas support
+- MIDI/trigger input nodes
 
-```tsx
-import { useNodeRegistration } from '@core/useNodeRegistration'
-import { aninodeStore } from '@core/store'
+---
 
-export function MyNode({ id, ...props }) {
-  useNodeRegistration(id, 'MyNode', props)
+## Common Issues
 
-  // Your node logic here
+### Infinite Re-render Loop
 
-  return <div>My Node UI</div>
-}
-```
+**Problem**: Node causes "Maximum update depth exceeded"
 
-2. Add to node types in `src/components/NodeEditor/index.tsx`
-
-3. Update `NodeType` in `src/types/index.ts`
-
-### Connecting Nodes
+**Solution**: Don't use `useSnapshot` for 60fps values. Use RAF polling:
 
 ```typescript
-// In a node that needs input from another node
-const sourceNode = aninodeStore.nodes[sourceNodeId]
-const value = sourceNode?.outputs?.someValue
+// BAD
+const snap = useSnapshot(aninodeStore)
+const value = snap.nodes[id]?.outputs.value
 
-// Or use resolveProperty
-const value = resolveProperty(nodeId, 'propName', defaultValue)
+// GOOD
+const [value, setValue] = useState(0)
+useEffect(() => {
+  let rafId: number
+  const update = () => {
+    setValue(aninodeStore.nodes[id]?.outputs.value ?? 0)
+    rafId = requestAnimationFrame(update)
+  }
+  rafId = requestAnimationFrame(update)
+  return () => cancelAnimationFrame(rafId)
+}, [id])
 ```
 
-### Reading Scene Data
+### Tween Not Stopping
+
+**Problem**: Animation continues after component unmount
+
+**Solution**: Always kill tweens in cleanup:
 
 ```typescript
-import { useSnapshot } from 'valtio'
-import { aninodeStore } from '@core/store'
-
-function MyComponent() {
-  const snap = useSnapshot(aninodeStore)
-
-  if (!snap.scene) return null
-
-  return (
-    <div>
-      Canvas: {snap.scene.canvas.width} x {snap.scene.canvas.height}
-      Layers: {snap.scene.assets.length}
-    </div>
-  )
-}
+useEffect(() => {
+  const tween = gsap.to(...)
+  return () => tween.kill()
+}, [])
 ```
 
-## Tips & Best Practices
-
-1. **Use Snapshots for Reading**
-   ```tsx
-   const snap = useSnapshot(aninodeStore)
-   // Read from snap, not aninodeStore directly
-   ```
-
-2. **Direct Assignment for Writing**
-   ```tsx
-   aninodeStore.ui.zoom = 1.5
-   // Valtio will automatically trigger re-renders
-   ```
-
-3. **Use Store Actions**
-   ```tsx
-   import { storeActions } from '@core/store'
-   storeActions.addNode(newNode)
-   ```
-
-4. **Clean Up Resources**
-   ```tsx
-   useEffect(() => {
-     // Setup
-     return () => {
-       // Cleanup (e.g., revoke blob URLs)
-     }
-   }, [])
-   ```
-
-## Debugging
-
-### View Store State
-```tsx
-console.log('Store:', aninodeStore)
-console.log('Nodes:', Object.keys(aninodeStore.nodes))
-```
-
-### React DevTools
-- Install React DevTools browser extension
-- Components will show Valtio state
-
-### Check Console
-All node registration/unregistration is logged:
-```
-[Aninode] Node registered: lfo1 (Type: LFO)
-[Aninode] Node unregistered: lfo1
-```
-
-## Known Issues
-
-- Timeline playback not yet implemented (controls are UI only)
-- Path drawing not yet integrated
-- Node connections are stored but not visualized
-- Export functionality is a placeholder
+---
 
 ## Resources
 
+- **GSAP Docs**: https://greensock.com/docs/
+- **GSAP Easing Visualizer**: https://greensock.com/docs/v3/Eases
 - **Valtio Docs**: https://valtio.pmnd.rs/
-- **Framer Motion**: https://www.framer.com/motion/
 - **React Flow**: https://reactflow.dev/
-- **GSAP**: https://greensock.com/gsap/
 
-## Need Help?
+---
 
-1. Check `MIGRATION_PLAN.md` for detailed architecture
-2. Read `README.md` for feature overview
-3. Review existing node implementations in parent directory
-4. Refer to `Aninode_ideas.txt` for feature inspiration
+## Commands
 
-## Let's Build! 🚀
+```bash
+npm run dev       # Start dev server
+npm run build     # Production build
+npx tsc --noEmit  # Type check
+```
 
-You now have a solid foundation. The architecture is clean, extensible, and ready for the next phase. Start with implementing the core nodes, then move to the visual node editor.
+---
 
-Good luck, and enjoy building Aninode!
+*Updated: 2024-12-01*
+*Animation Engine: GSAP*

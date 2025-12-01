@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useMotionValue, animate } from 'framer-motion'
+import gsap from 'gsap'
 import { aninodeStore } from '@core/store'
 import { useNodeRegistration } from '@core/useNodeRegistration'
 
@@ -46,6 +46,15 @@ const AUTO_MAPPING_PRESET = {
   scaleY: 'scaleY',
   anchorX: 'scaleAnchorX',
   anchorY: 'scaleAnchorY',
+}
+
+// Map easing names to GSAP equivalents
+const GSAP_EASING_MAP: Record<string, string> = {
+  linear: 'none',
+  easeIn: 'power2.in',
+  easeOut: 'power2.out',
+  easeInOut: 'power2.inOut',
+  spring: 'elastic.out(1, 0.3)',
 }
 
 export function ScaleNode({
@@ -101,9 +110,9 @@ export function ScaleNode({
   // Register node
   useNodeRegistration(id, 'ScaleNode' as any, baseProps)
 
-  // Animation state
-  const scaleX = useMotionValue(staticScaleX)
-  const scaleY = useMotionValue(staticScaleY)
+  // Animation state - plain object for GSAP
+  const stateRef = useRef({ scaleX: staticScaleX, scaleY: staticScaleY })
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
   const lastPublishedX = useRef<number>(staticScaleX)
   const lastPublishedY = useRef<number>(staticScaleY)
 
@@ -128,27 +137,15 @@ export function ScaleNode({
     }
   }, [id])
 
-  // Get easing function
-  const getEasing = () => {
-    switch (easing) {
-      case 'linear':
-        return 'linear'
-      case 'easeIn':
-        return 'easeIn'
-      case 'easeOut':
-        return 'easeOut'
-      case 'easeInOut':
-        return 'easeInOut'
-      case 'spring':
-        return { type: 'spring', stiffness: 300, damping: 20 }
-      default:
-        return 'easeInOut'
-    }
-  }
-
   // Main scale logic
   useEffect(() => {
     if (!id) return
+
+    // Kill any existing tween
+    if (tweenRef.current) {
+      tweenRef.current.kill()
+      tweenRef.current = null
+    }
 
     // Helper: Publish scale values (with anti-jitter)
     const publishScale = (x: number, y: number) => {
@@ -171,8 +168,8 @@ export function ScaleNode({
     // MODE 1: Static
     if (mode === 'Static') {
       const finalY = uniform ? staticScaleX : staticScaleY
-      scaleX.set(staticScaleX)
-      scaleY.set(finalY)
+      stateRef.current.scaleX = staticScaleX
+      stateRef.current.scaleY = finalY
       publishScale(staticScaleX, finalY)
       return
     }
@@ -182,36 +179,26 @@ export function ScaleNode({
       const finalStartY = uniform ? startScaleX : startScaleY
       const finalEndY = uniform ? endScaleX : endScaleY
 
-      scaleX.set(startScaleX)
-      scaleY.set(finalStartY)
+      stateRef.current.scaleX = startScaleX
+      stateRef.current.scaleY = finalStartY
 
-      const easingValue = getEasing()
+      const gsapEasing = GSAP_EASING_MAP[easing] || 'power2.inOut'
 
-      const controlsX = animate(scaleX, endScaleX, {
-        duration,
-        ease: typeof easingValue === 'string' ? easingValue : undefined,
-        ...(typeof easingValue === 'object' ? easingValue : {}),
-        repeat: loop ? Infinity : 0,
-        repeatType: yoyo ? 'reverse' : 'loop',
-        onUpdate: (latestX) => {
-          publishScale(latestX, scaleY.get())
-        },
-      })
-
-      const controlsY = animate(scaleY, finalEndY, {
-        duration,
-        ease: typeof easingValue === 'string' ? easingValue : undefined,
-        ...(typeof easingValue === 'object' ? easingValue : {}),
-        repeat: loop ? Infinity : 0,
-        repeatType: yoyo ? 'reverse' : 'loop',
-        onUpdate: (latestY) => {
-          publishScale(scaleX.get(), latestY)
-        },
+      tweenRef.current = gsap.to(stateRef.current, {
+        scaleX: endScaleX,
+        scaleY: finalEndY,
+        duration: duration,
+        ease: gsapEasing,
+        repeat: loop ? -1 : 0,
+        yoyo: yoyo,
+        onUpdate: () => publishScale(stateRef.current.scaleX, stateRef.current.scaleY),
       })
 
       return () => {
-        controlsX.stop()
-        controlsY.stop()
+        if (tweenRef.current) {
+          tweenRef.current.kill()
+          tweenRef.current = null
+        }
       }
     }
 
@@ -225,8 +212,8 @@ export function ScaleNode({
         if (inputValue !== undefined) {
           // Formula: baseScale + (inputValue * multiplier) + offset
           const result = baseScale + (inputValue * multiplier) + offset
-          scaleX.set(result)
-          scaleY.set(uniform ? result : result)
+          stateRef.current.scaleX = result
+          stateRef.current.scaleY = uniform ? result : result
           publishScale(result, uniform ? result : result)
         }
       }
@@ -240,7 +227,7 @@ export function ScaleNode({
     }
 
     // Fallback
-    publishScale(scaleX.get(), scaleY.get())
+    publishScale(stateRef.current.scaleX, stateRef.current.scaleY)
   }, [
     id,
     mode,
@@ -264,6 +251,15 @@ export function ScaleNode({
     anchorX,
     anchorY,
   ])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (tweenRef.current) {
+        tweenRef.current.kill()
+      }
+    }
+  }, [])
 
   return null
 }

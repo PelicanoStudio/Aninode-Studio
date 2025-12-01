@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { motion } from 'framer-motion'
 import { aninodeStore, storeActions } from '@core/store'
 import styles from './Viewport.module.css'
 
@@ -41,18 +40,18 @@ export function Viewport() {
   return (
     <div className={styles.container} ref={containerRef}>
       <div className={styles.viewport}>
-        <motion.div
+        <div
           className={styles.canvas}
           style={{
             width: snap.scene.canvas.width,
             height: snap.scene.canvas.height,
-            scale: scale * snap.ui.zoom,
+            transform: `scale(${scale * snap.ui.zoom})`,
           }}
         >
           {[...snap.scene.assets]
             .sort((a, b) => a.zIndex - b.zIndex)
             .map((asset) => (
-              <motion.div
+              <div
                 key={asset.id}
                 className={`${styles.layer} ${
                   snap.ui.selectedLayerId === asset.id ? styles.selected : ''
@@ -75,9 +74,9 @@ export function Viewport() {
                   alt={asset.name}
                   draggable={false}
                 />
-              </motion.div>
+              </div>
             ))}
-        </motion.div>
+        </div>
       </div>
 
       {/* Zoom Controls */}

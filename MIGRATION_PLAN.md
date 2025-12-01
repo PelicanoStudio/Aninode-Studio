@@ -1,12 +1,85 @@
 # Aninode Migration Plan
 
-This document outlines the strategy for migrating your Framer-based nodal animation engine to a standalone React application.
+This document outlines the strategy for migrating your Framer-based nodal animation engine to a standalone React application, with a focus on professional output capabilities.
 
 ## Overview
 
-**Goal**: Create a production-ready React app that captures all key features of your current Framer prototypes, with a focus on scene import/export and path drawing tools.
+**Goal**: Create a production-ready animation engine capable of delivering:
+- Gamified e-learning experiences
+- Short films and motion graphics
+- Projection mapping installations
+- Interactive web experiences
 
-**Approach**: Hybrid - New clean architecture with adapted code from existing components.
+**Approach**: GSAP-centric architecture with pluggable renderers and optimized exports.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ANINODE ENGINE v2                             │
+│                  (GSAP-Centric Architecture)                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                    INPUT LAYER                            │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  DOM Events    │ Web MIDI API │ Gamepad │ WebSocket/OSC  │   │
+│  │  Keyboard      │ Audio Input  │ Sensors │ Custom Triggers│   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   NODE GRAPH LAYER                        │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  Transform Nodes    │ Signal Generators │ Control Nodes  │   │
+│  │  ├─ RotationNode    │ ├─ LFONode        │ ├─ TriggerNode │   │
+│  │  ├─ ScaleNode       │ ├─ CurveNode      │ ├─ MIDINode    │   │
+│  │  ├─ PositionNode    │ ├─ NoiseNode      │ ├─ KeyboardNode│   │
+│  │  └─ DeformNode      │ └─ AudioReactive  │ └─ HoverNode   │   │
+│  │                                                           │   │
+│  │  Media Nodes        │ Analysis Nodes    │ Output Nodes   │   │
+│  │  ├─ SpriteNode      │ ├─ StaticZone     │ ├─ Renderer    │   │
+│  │  ├─ FrameAnimNode   │ ├─ Performance    │ ├─ VideoExport │   │
+│  │  ├─ VideoNode       │ └─ Dependency     │ ├─ AudioExport │   │
+│  │  └─ SubtitleNode    │                   │ └─ HTMLExport  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   ANIMATION ENGINE                        │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │                       GSAP                                │   │
+│  │  ├─ Core             (tweens, timelines)                 │   │
+│  │  ├─ MotionPathPlugin (path animation)                    │   │
+│  │  ├─ MorphSVGPlugin   (shape morphing)                    │   │
+│  │  ├─ PixiPlugin       (PixiJS integration)                │   │
+│  │  ├─ DrawSVGPlugin    (line drawing)                      │   │
+│  │  ├─ CustomEase       (bezier curves)                     │   │
+│  │  └─ ScrollTrigger    (scroll-based, optional)            │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   RENDER LAYER                            │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  DOM/CSS       │  PixiJS        │  Three.js    │  Raw GL │   │
+│  │  (Simple)      │  (2D WebGL)    │  (3D/2.5D)   │ (Custom)│   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   EXPORT LAYER                            │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  Web Package     │ Video Export    │ Standalone HTML     │   │
+│  │  ├─ GSAP min     │ ├─ MP4 (h264)   │ ├─ Single file     │   │
+│  │  ├─ Plugins      │ ├─ WebM (VP9)   │ ├─ All assets      │   │
+│  │  ├─ Renderer     │ ├─ GIF          │ └─ Offline capable │   │
+│  │  └─ Assets       │ ├─ PNG Sequence │                     │   │
+│  │                  │ └─ Audio (WAV)  │                     │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Migration Phases
 
@@ -19,178 +92,217 @@ This document outlines the strategy for migrating your Framer-based nodal animat
 - [x] Design main layout structure
 - [x] Build UI components (TopBar, Layout, panels)
 
-### 🚧 Phase 2: Core Animation Engine (IN PROGRESS)
-- [ ] **SceneAnimator Component**
-  - Remove Framer Motion dependencies where needed
-  - Port path animation logic
-  - Implement lighting system
-  - Add shadow rendering
-  - Support keyframes and easing
+### ✅ Phase 2: Animation Engine Migration (COMPLETED)
+- [x] **Replace Framer Motion with GSAP**
+  - [x] Remove framer-motion dependency
+  - [x] Install GSAP core
+  - [x] Migrate RotationNode to GSAP
+  - [x] Migrate ScaleNode to GSAP
+  - [x] Migrate OpacityNode to GSAP
+  - [x] LFONode (already uses requestAnimationFrame)
+  - [x] Update Viewport component
 
-- [ ] **Node Implementations**
-  - LFO Node (oscillator)
-  - ObjectPicker Node (connections)
-  - ScaleModifier Node
-  - LightController Node
-  - PathDrawer Node
+### 🚧 Phase 3: Core Node Implementations (IN PROGRESS)
+- [x] RotationNode (Static/Animated/Controlled modes)
+- [x] ScaleNode (Uniform/Non-uniform, easing)
+- [x] OpacityNode (Effects: fadeIn, fadeOut, pulse, blink)
+- [x] LFONode (Waveforms: sine, triangle, square, sawtooth, noise)
+- [ ] PositionNode (X/Y animation)
+- [ ] DeformationNode (Squash, stretch, skew)
+- [ ] ColorNode (Tint, color animation)
+- [ ] ObjectPickerNode (Layer selection)
+- [ ] SceneAnimatorNode (Apply nodes to scene)
 
-### 📋 Phase 3: Visual Node Editor
+### 📋 Phase 4: Visual Node Editor
 - [ ] Integrate React Flow for visual node graph
 - [ ] Implement drag-and-drop for nodes
 - [ ] Create connection system (cables)
 - [ ] Add node ports (inputs/outputs)
 - [ ] Build context menus for nodes
-- [ ] Implement multi-select and grouping
 
-### 📋 Phase 4: Path Drawing Tools
+### 📋 Phase 5: Path & Drawing Tools
 - [ ] Port path drawing from WebEnginePrototype
-- [ ] Implement Bezier curve editor
-- [ ] Add point manipulation (handles)
-- [ ] Support SVG path import/export
-- [ ] Keyboard shortcuts (P for draw mode, Enter to save)
-- [ ] Path preview overlay
+- [ ] GSAP MotionPathPlugin integration
+- [ ] Bezier curve editor
+- [ ] SVG path import/export
 
-### 📋 Phase 5: Scene Import/Export
-- [ ] **Importer**
-  - File System Access API integration
-  - Parse Photoshop JSON format
-  - Load and cache image assets
-  - Layer hierarchy support
-  - Blend mode compatibility
-
-- [ ] **Exporter**
-  - Generate standalone HTML/JS
-  - Bundle all assets
-  - Minify and optimize code
-  - Include Framer Motion runtime
-  - Package as ZIP or directory
-
-### 📋 Phase 6: Timeline & Animation
-- [ ] Keyframe system
-- [ ] Scrubbing functionality
+### 📋 Phase 6: Timeline System
+- [ ] GSAP Timeline integration
+- [ ] Timeline UI with scrubbing
+- [ ] Keyframe visualization
 - [ ] Layer tracks
-- [ ] Animation curves editor
 - [ ] Playback controls (play, pause, loop, speed)
 - [ ] Time markers and regions
 
-### 📋 Phase 7: Advanced Features
+### 📋 Phase 7: Media & Sprite System
+- [ ] **Sprite Atlas Support**
+  - PixiJS Spritesheet integration
+  - Texture packing optimization
+  - Runtime atlas generation
+- [ ] **Frame-by-Frame Animation**
+  - AnimatedSprite node
+  - GSAP stepped easing
+  - FPS control
+- [ ] **Video Integration**
+  - Video texture support
+  - Sync with timeline
+
+### 📋 Phase 8: Export System
+- [ ] **Web Export**
+  - Tree-shaken GSAP bundle
+  - Asset optimization
+  - Single HTML file option
+- [ ] **Video Rendering**
+  - Canvas capture pipeline
+  - Frame-by-frame GSAP seeking
+  - FFmpeg.wasm integration
+  - MP4/WebM/GIF output
+- [ ] **Audio Export**
+  - Web Audio API rendering
+  - OfflineAudioContext for fast export
+  - Track compilation
+  - Subtitle export (WebVTT)
+- [ ] **Static Zone Optimization**
+  - Automatic detection of non-animated regions
+  - Pre-render static elements
+  - Reduce video rendering time
+
+### 📋 Phase 9: Input & Trigger System
+- [ ] **Event Nodes**
+  - TriggerNode (click, hover, keyboard)
+  - MIDIInputNode (CC, notes, velocity)
+  - GamepadNode (controller support)
+  - WebSocketNode (OSC bridge, external control)
+- [ ] **Audio-Reactive**
+  - AudioAnalyzerNode
+  - Frequency band mapping
+  - Beat detection
+
+### 📋 Phase 10: Advanced Effects
 - [ ] **Mesh Warping**
-  - Port pixel warper (Three.js)
-  - Port SVG warper
-  - Transitor morphing system
-
-- [ ] **Audio Integration**
-  - Audio timeline component
-  - Waveform visualization
-  - Audio-reactive parameters
-
-- [ ] **Effects System**
-  - Blur, glow, color adjustments
+  - Three.js/PixiJS mesh deformation
+  - PxlMorpher integration
+  - SVG morph (MorphSVGPlugin)
+- [ ] **Shader Effects**
+  - Custom GLSL support
+  - Blur, glow, distortion
   - Blend modes
-  - Masks and clipping
 
-### 📋 Phase 8: UI/UX Polish
-- [ ] Responsive design
-- [ ] Dark/light theme
-- [ ] Keyboard shortcuts
-- [ ] Undo/redo system
-- [ ] Context menus
-- [ ] Tooltips and help
-- [ ] Onboarding flow
-
-### 📋 Phase 9: Testing & Optimization
-- [ ] Unit tests for core logic
-- [ ] Integration tests
+### 📋 Phase 11: Polish & Optimization
 - [ ] Performance profiling
-- [ ] Memory leak detection
+- [ ] Memory management
 - [ ] Bundle size optimization
-- [ ] Browser compatibility testing
+- [ ] Browser compatibility
+- [ ] Documentation
 
-### 📋 Phase 10: Documentation & Release
-- [ ] User documentation
-- [ ] Video tutorials
-- [ ] Example projects
-- [ ] API documentation
-- [ ] Deployment guide
+---
 
-## Key Migration Decisions
+## Tech Stack (Final)
 
-### ✅ Decisions Made
-1. **State Management**: Valtio (existing choice, works well)
-2. **Animation Library**: Framer Motion (keep for most animations)
-3. **Build Tool**: Vite (fast, modern)
-4. **Node Editor**: React Flow (industry standard)
-5. **3D/Warping**: React Three Fiber + Three.js (existing choice)
+### Development Environment
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| UI Framework | React 18 | Component system (dev only) |
+| Language | TypeScript | Type safety |
+| State | Valtio | Proxy-based reactivity |
+| Animation | **GSAP** | All animation |
+| 2D Render | PixiJS | WebGL sprites |
+| 3D Render | Three.js / R3F | 3D/2.5D scenes |
+| Node Editor | React Flow | Visual programming |
+| Build | Vite | Fast bundling |
 
-### 🤔 Decisions Pending
-1. **Export Format**: Static HTML vs. React app?
-2. **Backend**: Need server for collaboration features?
-3. **Storage**: Local files vs. cloud storage?
-4. **Licensing**: Open source vs. proprietary?
+### Export Bundles (Tree-Shakeable)
+```
+EXPORT PROFILES:
 
-## Code Reuse Strategy
+"e-learning"     → GSAP + DOM           (~30KB)
+"web-animation"  → GSAP + PixiJS        (~80KB)
+"3d-scene"       → GSAP + Three.js      (~150KB)
+"projection"     → GSAP + WebGL Raw     (~40KB)
+"short-film"     → GSAP + Full Stack    (~200KB)
+```
 
-### Components to Migrate Directly
-- `export_store.ts` → Core store ✅
-- `useNodeRegistration.ts` → Node registration ✅
-- `resolveProperty.ts` → Property resolution ✅
-- `LFO_Node.tsx` → LFO implementation
-- `ObjectPicker.tsx` → Picker logic
-- `LightController.tsx` → Light controller
-- `ScaleModifier.tsx` → Modifier node
+### GSAP Plugins Required
+| Plugin | Size | Purpose | License |
+|--------|------|---------|---------|
+| Core | ~24KB | Tweens, timelines | Free |
+| MotionPathPlugin | ~8KB | Path animation | Free |
+| CustomEase | ~3KB | Bezier curves | Free |
+| PixiPlugin | ~5KB | PixiJS integration | Free |
+| DrawSVGPlugin | ~4KB | Line drawing | Club |
+| MorphSVGPlugin | ~10KB | Shape morphing | Club |
+| ScrollTrigger | ~12KB | Scroll animations | Free |
 
-### Components to Adapt
-- `SceneExporter.tsx` → Remove Framer-specific code, keep animation logic
-- `WebEnginePrototype.tsx` → Extract path drawing, adapt for main app
-- `morphShader.js` → Use in warper feature
-- `AudioTimeline.tsx` → Integrate with main timeline
+---
 
-### Components to Redesign
-- Node graph UI (use React Flow instead of Framer canvas)
-- Timeline interface (more professional timeline component)
-- Export modal (better file management UI)
+## Key Decisions Made
 
-## Framer Removal Checklist
+### ✅ Animation Library: GSAP Only
+**Removed**: Framer Motion
+**Reason**:
+- Smaller export bundles (no React runtime needed)
+- Frame-perfect timeline seeking for video export
+- Native PixiJS/Three.js integration
+- Industry standard for film/advertising
+- Better tree-shaking
 
-### Dependencies to Replace
-- [ ] `framer` → Remove package
-- [ ] `addPropertyControls` → Replace with custom prop panels
-- [ ] `ControlType` → Use standard HTML inputs
-- [ ] Framer `motion` → Use `framer-motion` library directly ✅
-- [ ] Framer canvas → Use standard HTML canvas/SVG
+### ✅ Rendering Strategy: Pluggable
+Multiple renderers supported:
+- **DOM/CSS**: Simple animations, e-learning
+- **PixiJS**: 2D sprites, high performance
+- **Three.js**: 3D scenes, 2.5D parallax
+- **Raw WebGL**: Custom shaders, PxlMorpher
 
-### API Changes Needed
-- [ ] Remove `isEditing` checks (Framer environment detection)
-- [ ] Replace `window.Framer` checks
-- [ ] Remove Framer-specific prop types
-- [ ] Update export format (no Framer dependencies)
+### ✅ Export Strategy: Tree-Shaken
+Each export includes only:
+- GSAP core + used plugins
+- Selected renderer
+- Optimized assets
+- Generated animation code
 
-## Testing Strategy
+---
 
-### Manual Testing Checklist
-- [ ] Scene import from Photoshop export
-- [ ] Node creation and deletion
-- [ ] Node connections and data flow
-- [ ] Path drawing and editing
-- [ ] Animation playback
-- [ ] Timeline scrubbing
-- [ ] Export to standalone project
-- [ ] Re-import exported project
+## Video Rendering Pipeline
 
-### Automated Testing
-- [ ] Unit tests for store actions
-- [ ] Property resolution logic
-- [ ] Node registration/unregistration
-- [ ] Animation calculations
-- [ ] Path generation algorithms
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    VIDEO EXPORT PIPELINE                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. ANALYSIS PHASE                                               │
+│     ├─ StaticZoneAnalyzer scans timeline                        │
+│     ├─ Identifies non-animated layers                           │
+│     └─ Pre-renders static content                               │
+│                                                                  │
+│  2. RENDER PHASE                                                 │
+│     ├─ GSAP timeline.seek(frame / fps)                          │
+│     ├─ Renderer draws frame (PixiJS/Three.js)                   │
+│     ├─ Canvas captured to ImageData                             │
+│     └─ Frame added to buffer                                    │
+│                                                                  │
+│  3. ENCODE PHASE                                                 │
+│     ├─ FFmpeg.wasm encodes frames                               │
+│     ├─ Audio track compiled (OfflineAudioContext)               │
+│     ├─ Subtitles embedded (WebVTT)                              │
+│     └─ Final video output (MP4/WebM)                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Performance Targets
 
-- **Initial Load**: < 2 seconds
-- **Scene Import**: < 1 second for typical scene
-- **Animation FPS**: 60 fps for simple scenes, 30+ for complex
-- **Node Operations**: < 16ms (60 fps)
-- **Export Time**: < 5 seconds for typical project
+| Metric | Target |
+|--------|--------|
+| Initial Load | < 2 seconds |
+| Scene Import | < 1 second |
+| Animation FPS | 60fps (simple), 30fps+ (complex) |
+| Node Operations | < 16ms |
+| Video Export | ~2x realtime |
+| Web Export Size | < 100KB (simple), < 300KB (full) |
+
+---
 
 ## Browser Support
 
@@ -198,55 +310,42 @@ This document outlines the strategy for migrating your Framer-based nodal animat
 - **Secondary**: Firefox, Safari (latest 2 versions)
 - **Features requiring polyfills**:
   - File System Access API (fallback to downloads)
-  - Offscreen Canvas (fallback to main canvas)
+  - OfflineAudioContext (fallback to realtime)
+  - SharedArrayBuffer (for FFmpeg.wasm)
 
-## Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Framer Motion incompatibilities | High | Extensive testing, fallbacks |
-| File System API browser support | Medium | Provide download alternative |
-| Performance with many nodes | High | Virtual scrolling, lazy rendering |
-| Export bundle size | Medium | Code splitting, tree shaking |
-| Complex animation timing | High | Use battle-tested libraries (GSAP) |
+---
 
 ## Success Criteria
 
 ### MVP Success
-- [ ] Can import scene from Photoshop export
-- [ ] Can create and connect basic nodes
-- [ ] Can animate objects along paths
-- [ ] Can export standalone web project
-- [ ] UI is intuitive and responsive
-- [ ] No critical bugs
+- [ ] Import scene from Photoshop export
+- [ ] Create and connect basic nodes
+- [ ] Animate objects with GSAP timeline
+- [ ] Export standalone web project
+- [ ] Export video (MP4)
 
 ### Full Release Success
-- [ ] All major features from ideas.txt implemented
+- [ ] All node types implemented
+- [ ] Visual node editor working
+- [ ] Video export with audio
+- [ ] Sprite atlas support
+- [ ] Frame-by-frame animation
+- [ ] Path drawing tools
+- [ ] MIDI/trigger support
 - [ ] Performance meets targets
-- [ ] Documentation complete
-- [ ] Positive user feedback
-- [ ] Export projects work reliably
 
-## Timeline Estimate
-
-- **Phase 1**: 1 day (DONE ✅)
-- **Phase 2**: 3-5 days
-- **Phase 3**: 2-3 days
-- **Phase 4**: 2-3 days
-- **Phase 5**: 2-3 days
-- **Phase 6**: 3-4 days
-- **Phase 7**: 5-7 days
-- **Phase 8**: 2-3 days
-- **Phase 9**: 3-5 days
-- **Phase 10**: 2-3 days
-
-**Total Estimated Time**: 25-40 days (full-time development)
+---
 
 ## Next Steps
 
-1. ✅ Complete Phase 1 (Foundation)
-2. 🚧 Implement core node types
-3. Port SceneAnimator component
-4. Build visual node editor
-5. Integrate path drawing tools
-6. Implement import/export system
+1. ✅ Complete GSAP migration
+2. 🚧 Implement remaining core nodes (Position, Deform, Color)
+3. Port SceneAnimator for scene integration
+4. Build visual node editor (React Flow)
+5. Implement timeline UI with GSAP scrubbing
+6. Add video export pipeline
+
+---
+
+*Last Updated: 2024-12-01*
+*Animation Engine: GSAP (Framer Motion removed)*

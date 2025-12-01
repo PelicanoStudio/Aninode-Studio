@@ -86,13 +86,18 @@ export function NodeTester() {
   // Get selected node
   const selectedNode = activeNodes.find(n => n.id === selectedNodeId)
 
-  // Add a new node
+  // Add a new node with auto-numbered name
   const addNode = (type: NodeTypeKey) => {
     const id = `${type}_${Date.now()}`
+    // Count existing nodes of this type for auto-numbering
+    const existingCount = activeNodes.filter(n => n.type === type).length
+    const baseName = DEFAULT_CONFIGS[type].name
+    const displayName = existingCount === 0 ? baseName : `${baseName} ${existingCount + 1}`
+
     const newNode: ActiveNode = {
       type,
       id,
-      config: { ...DEFAULT_CONFIGS[type] },
+      config: { ...DEFAULT_CONFIGS[type], name: displayName },
     }
     setActiveNodes(prev => [...prev, newNode])
     setSelectedNodeId(id)
@@ -141,52 +146,59 @@ export function NodeTester() {
     }
   }, [isPlaying, activeNodes])
 
-  // Compute combined transform for preview box (all non-LFO nodes)
-  const getPreviewStyle = () => {
-    const style: React.CSSProperties = {}
-    let transforms: string[] = []
-    let anchorX = 50
-    let anchorY = 50
+  // Compute separate transforms for each type (to support different anchor points)
+  const getTransformLayers = () => {
+    let rotationStyle: React.CSSProperties = {}
+    let scaleStyle: React.CSSProperties = {}
+    let opacityValue = 1
 
-    // Combine outputs from all visual nodes (not LFO)
+    // Collect transforms from all visual nodes (not LFO)
     activeNodes.forEach(node => {
-      if (node.type === 'lfo') return // LFO doesn't affect visuals directly
+      if (node.type === 'lfo') return
 
       const out = outputs[node.id]
       if (!out) return
 
-      // Rotation
-      if (out.rotation !== undefined) {
-        transforms.push(`rotate(${out.rotation}deg)`)
-        if (out.anchorX !== undefined) {
-          anchorX = out.anchorX
-          anchorY = out.anchorY ?? 50
+      // Rotation - each rotation node can have its own anchor
+      if (out.rotation !== undefined && node.type === 'rotation') {
+        const anchorX = out.anchorX ?? 50
+        const anchorY = out.anchorY ?? 50
+        // Combine rotations if multiple
+        const existingRotation = rotationStyle.transform
+          ? parseFloat((rotationStyle.transform as string).replace('rotate(', '').replace('deg)', ''))
+          : 0
+        rotationStyle = {
+          transform: `rotate(${existingRotation + out.rotation}deg)`,
+          transformOrigin: `${anchorX}% ${anchorY}%`,
         }
       }
 
-      // Scale
-      if (out.scaleX !== undefined || out.scaleY !== undefined) {
+      // Scale - each scale node can have its own anchor
+      if ((out.scaleX !== undefined || out.scaleY !== undefined) && node.type === 'scale') {
         const scaleX = out.scaleX ?? 1
         const scaleY = out.scaleY ?? 1
-        transforms.push(`scale(${scaleX}, ${scaleY})`)
-        if (out.anchorX !== undefined && node.type === 'scale') {
-          anchorX = out.anchorX
-          anchorY = out.anchorY ?? 50
+        const anchorX = out.anchorX ?? 50
+        const anchorY = out.anchorY ?? 50
+        // Combine scales if multiple (multiply)
+        const existingScaleX = scaleStyle.transform
+          ? parseFloat((scaleStyle.transform as string).split(',')[0].replace('scale(', ''))
+          : 1
+        const existingScaleY = scaleStyle.transform
+          ? parseFloat((scaleStyle.transform as string).split(',')[1]?.replace(')', '') || '1')
+          : 1
+        scaleStyle = {
+          transform: `scale(${existingScaleX * scaleX}, ${existingScaleY * scaleY})`,
+          transformOrigin: `${anchorX}% ${anchorY}%`,
         }
       }
 
-      // Opacity
+      // Opacity (combine by multiply)
       if (out.opacity !== undefined) {
-        style.opacity = out.opacity
+        opacityValue *= out.opacity
       }
     })
 
-    if (transforms.length > 0) {
-      style.transform = transforms.join(' ')
-      style.transformOrigin = `${anchorX}% ${anchorY}%`
-    }
-
-    return style
+    return { rotationStyle, scaleStyle, opacityValue }
   }
 
   // Get active effects for display
@@ -318,20 +330,33 @@ export function NodeTester() {
             ) : (
               <>
                 <div className={styles.previewContainer}>
-                  <div
-                    className={`${styles.previewBox} ${selectedNodeId ? styles.selected : ''}`}
-                    style={getPreviewStyle()}
-                    onClick={() => {
-                      // Cycle through nodes on click
-                      if (activeNodes.length > 0) {
-                        const currentIndex = activeNodes.findIndex(n => n.id === selectedNodeId)
-                        const nextIndex = (currentIndex + 1) % activeNodes.length
-                        setSelectedNodeId(activeNodes[nextIndex].id)
-                      }
-                    }}
-                  >
-                    <span className={styles.previewArrow}>→</span>
-                  </div>
+                  {/* Nested wrappers for independent anchor points per transform type */}
+                  {(() => {
+                    const { rotationStyle, scaleStyle, opacityValue } = getTransformLayers()
+                    return (
+                      // Outer wrapper: Rotation (with its own transform-origin)
+                      <div style={rotationStyle} className={styles.transformLayer}>
+                        {/* Middle wrapper: Scale (with its own transform-origin) */}
+                        <div style={scaleStyle} className={styles.transformLayer}>
+                          {/* Inner: The actual preview box with opacity */}
+                          <div
+                            className={`${styles.previewBox} ${selectedNodeId ? styles.selected : ''}`}
+                            style={{ opacity: opacityValue }}
+                            onClick={() => {
+                              // Cycle through nodes on click
+                              if (activeNodes.length > 0) {
+                                const currentIndex = activeNodes.findIndex(n => n.id === selectedNodeId)
+                                const nextIndex = (currentIndex + 1) % activeNodes.length
+                                setSelectedNodeId(activeNodes[nextIndex].id)
+                              }
+                            }}
+                          >
+                            <span className={styles.previewArrow}>→</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Show combined effects */}
@@ -990,13 +1015,13 @@ function OpacityProperties({ config, onChange, availableLfos }: { config: any; o
                 </div>
               </div>
               <div className={styles.propRow}>
-                <label className={styles.propCheckbox}>
+                <label className={styles.propCheckbox} title="Limita el valor de opacidad entre 0% y 100%. Sin esto, valores como 130% o -20% serian posibles.">
                   <input
                     type="checkbox"
                     checked={config.clamp ?? true}
                     onChange={e => onChange('clamp', e.target.checked)}
                   />
-                  Clamp (0-1)
+                  Limitar a 0-100%
                 </label>
               </div>
             </>

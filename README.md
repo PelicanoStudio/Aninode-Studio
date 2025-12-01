@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 Project Structure Map
+## Project Structure Map
 
 ```
 aninode-mvp/
@@ -18,18 +18,18 @@ aninode-mvp/
 │   │   └── index.ts             # All shared types (NodeState, Connection, etc.)
 │   │
 │   ├── nodes/                   # Animation nodes (the heart of Aninode)
-│   │   └── RotationNode/
-│   │       ├── index.tsx        # Headless node logic
-│   │       ├── RotationNodeTester.tsx  # Testing UI
-│   │       └── RotationNodeTester.module.css
+│   │   ├── RotationNode/        # GSAP-powered rotation
+│   │   ├── ScaleNode/           # GSAP-powered scaling
+│   │   ├── OpacityNode/         # GSAP-powered opacity effects
+│   │   └── LFONode/             # Signal generator (RAF-based)
 │   │
 │   ├── components/              # UI components
 │   │   ├── Layout/              # App shell (Left/Center/Right/Bottom)
 │   │   ├── TopBar/              # Header toolbar
-│   │   ├── NodeEditor/          # Visual node graph (future)
+│   │   ├── NodeEditor/          # Visual node graph (future: React Flow)
 │   │   ├── Viewport/            # Scene preview (future: PixiJS/Three.js)
 │   │   ├── PropertiesPanel/     # Node property editor
-│   │   └── Timeline/            # Animation timeline
+│   │   └── Timeline/            # Animation timeline (future: GSAP scrubbing)
 │   │
 │   ├── pages/                   # Full-page views
 │   │   └── NodeTester.tsx       # Node testing playground
@@ -43,29 +43,32 @@ aninode-mvp/
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
-### Core Concepts
+### Engine Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      ANINODE ENGINE                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   NODES      │───▶│    STORE     │───▶│   RENDERER   │  │
-│  │ (Headless)   │    │  (Valtio)    │    │ (PixiJS/CSS) │  │
-│  └──────────────┘    └──────────────┘    └──────────────┘  │
-│         │                   │                    │          │
-│         ▼                   ▼                    ▼          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │RotationNode  │    │ NodeState    │    │  Viewport    │  │
-│  │DeformNode    │    │ Connections  │    │  (Canvas)    │  │
-│  │ScaleNode     │    │ Timeline     │    │              │  │
-│  │ColorNode     │    │ Presets      │    │              │  │
-│  └──────────────┘    └──────────────┘    └──────────────┘  │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                      ANINODE ENGINE v2                           │
+│                    (GSAP-Centric Architecture)                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   NODES      │───▶│    STORE     │───▶│   RENDERER   │       │
+│  │ (Headless)   │    │  (Valtio)    │    │ (Pluggable)  │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│         │                   │                    │               │
+│         ▼                   ▼                    ▼               │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │RotationNode  │    │ NodeState    │    │  DOM/CSS     │       │
+│  │ScaleNode     │    │ Connections  │    │  PixiJS      │       │
+│  │OpacityNode   │    │ Timeline     │    │  Three.js    │       │
+│  │LFONode       │    │ Presets      │    │  Raw WebGL   │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│                                                                  │
+│  Animation Engine: GSAP (all tweens, timelines, seeking)        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3-Level Property Hierarchy
@@ -81,7 +84,7 @@ Priority 3 (Lowest):  BASE PROPS    ← UI-set defaults
 ```
 Node Props → useNodeRegistration → aninodeStore.nodes[id]
                                           ↓
-                                   Node Logic (useEffect)
+                                   GSAP Tween/RAF Loop
                                           ↓
                                    aninodeStore.nodes[id].outputs
                                           ↓
@@ -90,7 +93,32 @@ Node Props → useNodeRegistration → aninodeStore.nodes[id]
 
 ---
 
-## 🔤 Naming Conventions
+## Tech Stack
+
+### Development Environment
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| UI Framework | React 18 | Component system (dev only) |
+| Language | TypeScript | Type safety |
+| State | Valtio | Proxy-based reactivity |
+| **Animation** | **GSAP** | All animation (tweens, timelines) |
+| 2D Render | PixiJS (planned) | WebGL sprites |
+| 3D Render | Three.js / R3F | 3D/2.5D scenes |
+| Node Editor | React Flow (planned) | Visual programming |
+| Build | Vite | Fast bundling |
+
+### Export Profiles (Tree-Shakeable)
+```
+"e-learning"     → GSAP + DOM           (~30KB)
+"web-animation"  → GSAP + PixiJS        (~80KB)
+"3d-scene"       → GSAP + Three.js      (~150KB)
+"projection"     → GSAP + WebGL Raw     (~40KB)
+"short-film"     → GSAP + Full Stack    (~200KB)
+```
+
+---
+
+## Naming Conventions
 
 ### Files
 | Type | Pattern | Example |
@@ -113,7 +141,7 @@ Node Props → useNodeRegistration → aninodeStore.nodes[id]
 
 ---
 
-## 📦 Key Types Reference
+## Key Types Reference
 
 ```typescript
 // Node in the graph
@@ -128,8 +156,8 @@ type NodeState = {
   connectedInputs: Record<string, ConnectedInput | null>
 }
 
-// Node types (extend as needed)
-type NodeType = 'RotationNode' | 'DeformationNode' | 'ScaleNode' | ...
+// Node types
+type NodeType = 'RotationNode' | 'ScaleNode' | 'OpacityNode' | 'LFONode' | ...
 
 // Connection between nodes
 type Connection = {
@@ -143,59 +171,120 @@ type Connection = {
 
 ---
 
-## 🛠️ Common Patterns
+## Common Patterns
 
-### Creating a New Node
+### Creating a New Node (GSAP)
 
 ```typescript
 // src/nodes/{NodeName}/index.tsx
-export function {NodeName}({ id, name = '{NodeName}', ...props }: {NodeName}Props) {
-  useNodeRegistration(id, '{NodeName}', { id, name, ...props })
-  
+import { useEffect, useRef } from 'react'
+import gsap from 'gsap'
+import { aninodeStore } from '@core/store'
+import { useNodeRegistration } from '@core/useNodeRegistration'
+
+export function MyNode({ id, name = 'MyNode', ...props }: MyNodeProps) {
+  useNodeRegistration(id, 'MyNode', { id, name, ...props })
+
+  const stateRef = useRef({ value: 0 })
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
+
   useEffect(() => {
-    // Publish outputs
-    if (aninodeStore.nodes[id]) {
-      aninodeStore.nodes[id].outputs.value = computedValue
+    // Kill existing tween on prop change
+    if (tweenRef.current) tweenRef.current.kill()
+
+    // Create GSAP animation
+    tweenRef.current = gsap.to(stateRef.current, {
+      value: 100,
+      duration: 2,
+      repeat: -1,
+      yoyo: true,
+      onUpdate: () => {
+        if (aninodeStore.nodes[id]) {
+          aninodeStore.nodes[id].outputs.value = stateRef.current.value
+        }
+      }
+    })
+
+    return () => {
+      if (tweenRef.current) tweenRef.current.kill()
     }
-  }, [id, /* dependencies - NOT motion values */])
+  }, [id, /* dependencies */])
 
   return null // Headless
+}
+```
+
+### GSAP Easing Map
+
+```typescript
+const GSAP_EASING_MAP: Record<string, string> = {
+  linear: 'none',
+  easeIn: 'power2.in',
+  easeOut: 'power2.out',
+  easeInOut: 'power2.inOut',
+  spring: 'elastic.out(1, 0.3)',
 }
 ```
 
 ### Reading Node Outputs (Without Re-render Loop)
 
 ```typescript
-// ❌ BAD: useSnapshot causes infinite re-renders with animated values
-const snap = useSnapshot(aninodeStore)
-
 // ✅ GOOD: Poll with requestAnimationFrame
 useEffect(() => {
+  let rafId: number
   const update = () => {
     const node = aninodeStore.nodes[id]
     if (node) setValue(node.outputs.value)
     rafId = requestAnimationFrame(update)
   }
-  let rafId = requestAnimationFrame(update)
+  rafId = requestAnimationFrame(update)
   return () => cancelAnimationFrame(rafId)
 }, [id])
 ```
 
 ---
 
-## 🗺️ Function Map
+## Node Inventory
 
-| Function | File | Purpose |
-|----------|------|---------|
-| `useNodeRegistration` | `core/useNodeRegistration.ts` | Register/unregister nodes |
-| `resolveProperty` | `core/resolveProperty.ts` | 3-Level hierarchy lookup |
-| `storeActions.addNode` | `core/store.ts` | Add node to store |
-| `storeActions.removeNode` | `core/store.ts` | Remove node + connections |
-| `storeActions.addConnection` | `core/store.ts` | Connect two nodes |
+### Transform Nodes
+| Node | Status | Outputs | Animation Engine |
+|------|--------|---------|------------------|
+| `RotationNode` | ✅ Working | `rotation`, `anchorX`, `anchorY` | GSAP |
+| `ScaleNode` | ✅ Working | `scaleX`, `scaleY`, `anchorX`, `anchorY` | GSAP |
+| `PositionNode` | 🔜 Planned | `x`, `y` | GSAP |
+| `DeformNode` | 🔜 Planned | `skewX`, `skewY`, `squash`, `stretch` | GSAP |
+
+### Appearance Nodes
+| Node | Status | Outputs | Animation Engine |
+|------|--------|---------|------------------|
+| `OpacityNode` | ✅ Working | `opacity` | GSAP |
+| `ColorNode` | 🔜 Planned | `color`, `tint` | GSAP |
+
+### Signal Generators
+| Node | Status | Outputs | Animation Engine |
+|------|--------|---------|------------------|
+| `LFONode` | ✅ Working | `value`, `normalized`, `phase` | RAF (native) |
+| `CurveNode` | 🔜 Planned | `value` | GSAP CustomEase |
+| `TriggerNode` | 🔜 Planned | `triggered`, `value` | Events |
+
+### Media Nodes (Planned)
+| Node | Purpose |
+|------|---------|
+| `SpriteNode` | PixiJS animated sprites |
+| `FrameAnimNode` | Frame-by-frame animation |
+| `VideoNode` | Video texture playback |
+| `SubtitleNode` | Timed text overlay |
+
+### Export Nodes (Planned)
+| Node | Purpose |
+|------|---------|
+| `VideoExportNode` | MP4/WebM rendering |
+| `AudioExportNode` | Track compilation |
+| `StaticZoneAnalyzer` | Optimization detection |
 
 ---
 
-## 🎯 Path Aliases
+## Path Aliases
 
 | Alias | Path |
 |-------|------|
@@ -207,72 +296,7 @@ useEffect(() => {
 
 ---
 
-## 📋 Node Inventory
-
-### Transform Nodes
-| Node | Status | Outputs | Purpose |
-|------|--------|---------|---------|
-| `RotationNode` | ✅ Working | `rotation`, `anchorX`, `anchorY` | Rotate layers |
-| `ScaleNode` | ✅ Working | `scaleX`, `scaleY`, `anchorX`, `anchorY` | Scale animations |
-| `PositionNode` | 🔜 Planned | `x`, `y` | Position animations |
-
-### Appearance Nodes
-| Node | Status | Outputs | Purpose |
-|------|--------|---------|---------|
-| `OpacityNode` | ✅ Working | `opacity` | Fade effects (fadeIn/fadeOut/pulse/blink) |
-| `ColorNode` | 🔜 Planned | `color`, `tint` | Color/tint animations |
-| `DeformationNode` | 🔜 Planned | `skewX`, `skewY`, `squash`, `stretch` | Squash & stretch |
-
-### Signal Generators
-| Node | Status | Outputs | Purpose |
-|------|--------|---------|---------|
-| `LFONode` | ✅ Working | `value`, `normalized`, `phase` | Oscillator (sine/triangle/square/sawtooth/noise) |
-| `CurveNode` | 🔜 Planned | `value` | Custom easing curves |
-| `TriggerNode` | 🔜 Planned | `triggered`, `value` | Event triggers |
-
-### Scene Control
-| Node | Status | Purpose |
-|------|--------|---------|
-| `SceneAnimatorNode` | 🔜 Planned | Apply nodes to scene layers |
-| `ObjectPickerNode` | 🔜 Planned | Select layers from scene |
-
----
-
-## 🔧 Tech Stack
-
-| Layer | Technology | Why |
-|-------|------------|-----|
-| Language | TypeScript | Type safety |
-| UI | React 18 | Components |
-| State | Valtio | Proxy reactivity |
-| Animation | Framer Motion | MotionValues |
-| Build | Vite | Fast bundling |
-| 2D Render | PixiJS (planned) | WebGL sprites |
-| 3D/2.5D | Three.js + R3F | WebGL hybrid scenes |
-| Advanced 2D | WebGL shaders | PxlMorpher, effects |
-
-### Rendering Strategy
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    RENDER LAYER (Pluggable)                  │
-├─────────────────────────────────────────────────────────────┤
-│  CSS Renderer     → Simple DOM transforms (current)          │
-│  PixiJS Renderer  → 2D sprites, high performance            │
-│  Three.js/R3F     → 3D scenes, 2.5D, hybrid                 │
-│  WebGL Shaders    → Complex effects (PxlMorpher, distort)   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**WebGL serves multiple purposes:**
-- Pure 2D sprite rendering (PixiJS)
-- 2.5D parallax/depth effects
-- 3D scene integration
-- Advanced 2D effects requiring shaders (morphing, distortion)
-
----
-
-## 🐛 Error Solutions Reference
+## Error Solutions Reference
 
 ### TypeScript Errors
 
@@ -281,65 +305,36 @@ useEffect(() => {
 | `Cannot find module '*.module.css'` | Missing CSS module types | Add to `vite-env.d.ts`: `declare module '*.module.css'` |
 | `Cannot import type declaration files '@types/index'` | Wrong import syntax | Use relative: `from '../types'` not `from '@types/index'` |
 | `Cannot find module 'path'` | Missing Node types | `npm install -D @types/node` |
-| `Cannot find name '__dirname'` | ESM doesn't have __dirname | Use `fileURLToPath(import.meta.url)` + `dirname()` |
-| `'X' is declared but never read` | Unused variable | Prefix with `_` or remove |
-| `Support for defaultProps will be removed` | React 18 deprecation | Use JS default parameters instead |
 
-### Runtime/Console Errors
+### Runtime Errors
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Maximum update depth exceeded` | Infinite re-render loop | See patterns below |
-| Node register/unregister spam | useEffect dependencies wrong | Don't include MotionValues in deps |
-| `useSnapshot` infinite loop | Snapshot triggers on every store change | Use `requestAnimationFrame` polling instead |
+| `Maximum update depth exceeded` | Infinite re-render loop | Use RAF polling, not useSnapshot for 60fps values |
+| Node register/unregister spam | useEffect deps wrong | Don't include animated values in deps |
 
-### Critical Pattern: Avoiding Infinite Loops
+### GSAP-Specific
 
-```typescript
-// ❌ CAUSES INFINITE LOOP
-function NodeTester() {
-  const snap = useSnapshot(aninodeStore)  // Re-renders on ANY store change
-  const rotation = snap.nodes[id]?.outputs.rotation  // Node updates this 60fps
-  // → Re-render → Node remounts → Updates store → Re-render...
-}
+| Pattern | Correct Usage |
+|---------|---------------|
+| Cleanup | Always call `tween.kill()` in useEffect cleanup |
+| Repeat | Use `-1` for infinite (not `Infinity`) |
+| Yoyo | Use `yoyo: true` property (not repeatType) |
+| Easing | Use GSAP names: `'power2.inOut'`, `'none'`, `'elastic.out(1, 0.3)'` |
 
-// ✅ CORRECT: Poll without triggering React re-renders
-function NodeTester() {
-  const [rotation, setRotation] = useState(0)
+---
 
-  useEffect(() => {
-    let rafId: number
-    const update = () => {
-      const node = aninodeStore.nodes[id]  // Direct access, no snapshot
-      if (node?.outputs?.rotation !== undefined) {
-        setRotation(node.outputs.rotation)
-      }
-      rafId = requestAnimationFrame(update)
-    }
-    rafId = requestAnimationFrame(update)
-    return () => cancelAnimationFrame(rafId)
-  }, [id])
-}
-```
+## Commands
 
-### Critical Pattern: useEffect Dependencies
-
-```typescript
-// ❌ BAD: MotionValue in dependencies causes infinite loop
-const rotation = useMotionValue(0)
-useEffect(() => {
-  // ...animation logic
-}, [rotation])  // MotionValue changes trigger effect → effect updates value → loop
-
-// ✅ GOOD: Exclude MotionValues from dependencies
-useEffect(() => {
-  // ...animation logic using rotation.get() and rotation.set()
-}, [id, speed, direction])  // Only include serializable props
+```bash
+npm run dev       # Dev server :3000
+npm run build     # Production build
+npx tsc --noEmit  # Type check all
 ```
 
 ---
 
-## 💬 Communication Protocol
+## Communication Protocol
 
 **New Node:**
 ```
@@ -358,13 +353,5 @@ Add {feature} to {file}
 
 ---
 
-## 🚀 Commands
-
-```bash
-npm run dev       # Dev server :3000
-npx tsc --noEmit  # Type check all
-```
-
----
-
-*Updated: 2024-11-27*
+*Updated: 2024-12-01*
+*Animation Engine: GSAP (Framer Motion removed)*

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useMotionValue, animate } from 'framer-motion'
+import gsap from 'gsap'
 import { aninodeStore } from '@core/store'
 import { useNodeRegistration } from '@core/useNodeRegistration'
 
@@ -89,8 +89,9 @@ export function RotationNode({
   // Register node
   useNodeRegistration(id, 'RotationNode' as any, baseProps)
 
-  // Animation state
-  const rotation = useMotionValue(staticAngle)
+  // Animation state - plain object for GSAP
+  const stateRef = useRef({ rotation: staticAngle })
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
   const lastPublishedValue = useRef<number>(staticAngle)
 
   // Publish auto-mapping preset
@@ -118,9 +119,15 @@ export function RotationNode({
   useEffect(() => {
     if (!id) return
 
+    // Kill any existing tween
+    if (tweenRef.current) {
+      tweenRef.current.kill()
+      tweenRef.current = null
+    }
+
     // Helper: Publish rotation value (with anti-jitter)
     const publishRotation = (value: number) => {
-      const rounded = Math.round(value * 100) / 100 // Round to 2 decimals
+      const rounded = Math.round(value * 100) / 100
       if (rounded !== lastPublishedValue.current) {
         lastPublishedValue.current = rounded
         if (aninodeStore.nodes[id]) {
@@ -133,7 +140,7 @@ export function RotationNode({
 
     // MODE 1: Static
     if (mode === 'Static') {
-      rotation.set(staticAngle)
+      stateRef.current.rotation = staticAngle
       publishRotation(staticAngle)
       return
     }
@@ -144,46 +151,40 @@ export function RotationNode({
 
       if (continuous) {
         // Infinite rotation
-        const animDuration = 1 / Math.abs(speed) // Time for one full rotation
+        const animDuration = 1 / Math.abs(speed)
+        stateRef.current.rotation = startAngle
 
-        rotation.set(startAngle)
-
-        const controls = animate(rotation, startAngle + 360 * directionMultiplier, {
+        tweenRef.current = gsap.to(stateRef.current, {
+          rotation: startAngle + 360 * directionMultiplier,
           duration: animDuration,
-          ease: 'linear',
-          repeat: Infinity,
-          onUpdate: (latest) => publishRotation(latest),
+          ease: 'none',
+          repeat: -1,
+          onUpdate: () => publishRotation(stateRef.current.rotation),
         })
-
-        return () => {
-          controls.stop()
-        }
       } else {
         // Limited rotation (from startAngle to endAngle)
-        rotation.set(startAngle)
+        stateRef.current.rotation = startAngle
 
-        const controls = animate(rotation, endAngle, {
+        tweenRef.current = gsap.to(stateRef.current, {
+          rotation: endAngle,
           duration: duration,
-          ease: 'linear',
-          repeat: loop ? Infinity : 0,
-          repeatType: yoyo ? 'reverse' : 'loop',
-          onUpdate: (latest) => publishRotation(latest),
+          ease: 'none',
+          repeat: loop ? -1 : 0,
+          yoyo: yoyo,
+          onUpdate: () => publishRotation(stateRef.current.rotation),
         })
+      }
 
-        return () => {
-          controls.stop()
+      return () => {
+        if (tweenRef.current) {
+          tweenRef.current.kill()
+          tweenRef.current = null
         }
       }
     }
 
     // MODE 3: Controlled (from other node)
     if (mode === 'Controlled' && inputNodeId && inputProperty) {
-      // Subscribe to input node changes
-      const unsubscribe = rotation.onChange((latest) => {
-        publishRotation(latest)
-      })
-
-      // Update based on input node
       const updateFromInput = () => {
         const inputNode = aninodeStore.nodes[inputNodeId]
         if (!inputNode) return
@@ -191,24 +192,24 @@ export function RotationNode({
         const inputValue = inputNode.outputs[inputProperty]
         if (inputValue !== undefined) {
           const result = inputValue * multiplier + offset
-          rotation.set(result)
+          stateRef.current.rotation = result
+          publishRotation(result)
         }
       }
 
       // Initial update
       updateFromInput()
 
-      // Watch for changes (simple polling for now)
-      const interval = setInterval(updateFromInput, 16) // ~60fps
+      // Watch for changes (~60fps polling)
+      const interval = setInterval(updateFromInput, 16)
 
       return () => {
-        unsubscribe()
         clearInterval(interval)
       }
     }
 
     // Fallback: publish current value
-    publishRotation(rotation.get())
+    publishRotation(stateRef.current.rotation)
   }, [
     id,
     mode,
@@ -228,8 +229,16 @@ export function RotationNode({
     offset,
     anchorX,
     anchorY,
-    // DON'T include 'rotation' here - it causes infinite loops!
   ])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (tweenRef.current) {
+        tweenRef.current.kill()
+      }
+    }
+  }, [])
 
   // Invisible component (headless node)
   return null

@@ -22,6 +22,15 @@ export type LFONodeProps = {
   syncToTimeline: boolean // sync to global timeline
 }
 
+// Seeded random for reproducible noise
+const seededRandom = (seed: number): number => {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
+  return x - Math.floor(x)
+}
+
+// Smooth interpolation (ease in-out)
+const smoothstep = (t: number): number => t * t * (3 - 2 * t)
+
 // Waveform functions (input: 0-1 normalized time, output: 0-1)
 const waveforms = {
   sine: (t: number) => (Math.sin(t * Math.PI * 2) + 1) / 2,
@@ -31,7 +40,16 @@ const waveforms = {
   },
   square: (t: number) => (t % 1 < 0.5 ? 1 : 0),
   sawtooth: (t: number) => t % 1,
-  noise: () => Math.random(),
+  // Noise that respects frequency: interpolates between random values per cycle
+  noise: (t: number) => {
+    const cycleIndex = Math.floor(t)
+    const cycleProgress = t - cycleIndex
+    // Get two consecutive random values based on cycle index
+    const value1 = seededRandom(cycleIndex)
+    const value2 = seededRandom(cycleIndex + 1)
+    // Smooth interpolation between them
+    return value1 + (value2 - value1) * smoothstep(cycleProgress)
+  },
 }
 
 export function LFONode({
