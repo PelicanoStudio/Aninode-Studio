@@ -3,10 +3,11 @@ import { RotationNode, RotationNodeProps } from '@nodes/RotationNode'
 import { ScaleNode, ScaleNodeProps } from '@nodes/ScaleNode'
 import { OpacityNode, OpacityNodeProps } from '@nodes/OpacityNode'
 import { LFONode, LFONodeProps } from '@nodes/LFONode'
+import { PhysicsNode, PhysicsNodeProps } from '@nodes/PhysicsNode'
 import { aninodeStore } from '@core/store'
 import styles from './NodeTester.module.css'
 
-type NodeTypeKey = 'rotation' | 'scale' | 'opacity' | 'lfo'
+type NodeTypeKey = 'rotation' | 'scale' | 'opacity' | 'lfo' | 'physics'
 
 type ActiveNode = {
   type: NodeTypeKey
@@ -73,6 +74,44 @@ const DEFAULT_CONFIGS: Record<NodeTypeKey, any> = {
     min: 0,
     max: 1,
     enabled: true,
+  },
+  physics: {
+    name: 'Physics',
+    mode: 'Gravity',
+    gravityEnabled: true,
+    gravityStrength: 9.8,
+    gravityDirection: 'Down',
+    customGravityX: 0,
+    customGravityY: 0,
+    bounceEnabled: false,
+    bounceStrength: 0.8,
+    bounceDecay: 0.95,
+    elasticity: 0.7,
+    parabolaEnabled: false,
+    initialVelocityX: 0,
+    initialVelocityY: 0,
+    airResistance: 0.01,
+    collisionEnabled: false,
+    collisionObjects: [],
+    repulsionStrength: 1,
+    attractionStrength: 1,
+    attractorEnabled: false,
+    attractorObjects: [],
+    attractorStrength: 1,
+    attractorRadius: 100,
+    randomPathEnabled: false,
+    randomness: 0.5,
+    pathComplexity: 5,
+    movementSpeed: 1,
+    mass: 1,
+    friction: 0.1,
+    positionX: 0,
+    positionY: 0,
+    velocityX: 0,
+    velocityY: 0,
+    outputPosition: true,
+    outputVelocity: true,
+    outputAcceleration: false,
   },
 }
 
@@ -150,6 +189,7 @@ export function NodeTester() {
   const getTransformLayers = () => {
     let rotationStyle: React.CSSProperties = {}
     let scaleStyle: React.CSSProperties = {}
+    let positionStyle: React.CSSProperties = {}
     let opacityValue = 1
 
     // Collect transforms from all visual nodes (not LFO)
@@ -158,6 +198,16 @@ export function NodeTester() {
 
       const out = outputs[node.id]
       if (!out) return
+
+      // Physics - apply position transforms
+      if (out.positionX !== undefined || out.positionY !== undefined) {
+        // For physics nodes, we want to apply position as a transform
+        const positionX = out.positionX ?? 0
+        const positionY = out.positionY ?? 0
+        positionStyle = {
+          transform: `translate(${positionX}px, ${positionY}px)`,
+        }
+      }
 
       // Rotation - each rotation node can have its own anchor
       if (out.rotation !== undefined && node.type === 'rotation') {
@@ -198,7 +248,7 @@ export function NodeTester() {
       }
     })
 
-    return { rotationStyle, scaleStyle, opacityValue }
+    return { positionStyle, rotationStyle, scaleStyle, opacityValue }
   }
 
   // Get active effects for display
@@ -209,6 +259,13 @@ export function NodeTester() {
       const out = outputs[node.id]
       if (!out) return
 
+      // Physics position effects
+      if (out.positionX !== undefined || out.positionY !== undefined) {
+        const positionX = out.positionX !== undefined ? out.positionX.toFixed(1) : '0'
+        const positionY = out.positionY !== undefined ? out.positionY.toFixed(1) : '0'
+        effects.push(`Position: (${positionX}, ${positionY})`)
+      }
+      
       if (out.rotation !== undefined) {
         effects.push(`Rotation: ${out.rotation.toFixed(1)}°`)
       }
@@ -238,6 +295,8 @@ export function NodeTester() {
           return <OpacityNode key={node.id} {...props as OpacityNodeProps} />
         case 'lfo':
           return <LFONode key={node.id} {...props as LFONodeProps} />
+        case 'physics':
+          return <PhysicsNode key={node.id} {...props as PhysicsNodeProps} />
         default:
           return null
       }
@@ -267,6 +326,7 @@ export function NodeTester() {
                   {node.type === 'scale' && '⤢'}
                   {node.type === 'opacity' && '◐'}
                   {node.type === 'lfo' && '∿'}
+                  {node.type === 'physics' && '⚡'}
                 </span>
                 {node.config.name || node.type}
                 <span
@@ -295,6 +355,9 @@ export function NodeTester() {
           </button>
           <button className={styles.nodeBtn} onClick={() => addNode('lfo')}>
             + LFO
+          </button>
+          <button className={styles.nodeBtn} onClick={() => addNode('physics')}>
+            + Physics
           </button>
         </div>
       </div>
@@ -332,17 +395,19 @@ export function NodeTester() {
                 <div className={styles.previewContainer}>
                   {/* Nested wrappers for independent anchor points per transform type */}
                   {(() => {
-                    const { rotationStyle, scaleStyle, opacityValue } = getTransformLayers()
+                    const { positionStyle, rotationStyle, scaleStyle, opacityValue } = getTransformLayers()
                     return (
-                      // Outer wrapper: Rotation (with its own transform-origin)
-                      <div style={rotationStyle} className={styles.transformLayer}>
-                        {/* Middle wrapper: Scale (with its own transform-origin) */}
-                        <div style={scaleStyle} className={styles.transformLayer}>
-                          {/* Inner: The actual preview box with opacity */}
-                          <div
-                            className={`${styles.previewBox} ${selectedNodeId ? styles.selected : ''}`}
-                            style={{ opacity: opacityValue }}
-                            onClick={() => {
+                      // Outer wrapper: Position (from physics)
+                      <div style={positionStyle} className={styles.transformLayer}>
+                        {/* Middle wrapper: Rotation (with its own transform-origin) */}
+                        <div style={rotationStyle} className={styles.transformLayer}>
+                          {/* Inner wrapper: Scale (with its own transform-origin) */}
+                          <div style={scaleStyle} className={styles.transformLayer}>
+                            {/* Inner: The actual preview box with opacity */}
+                            <div
+                              className={`${styles.previewBox} ${selectedNodeId ? styles.selected : ''}`}
+                              style={{ opacity: opacityValue }}
+                              onClick={() => {
                               // Cycle through nodes on click
                               if (activeNodes.length > 0) {
                                 const currentIndex = activeNodes.findIndex(n => n.id === selectedNodeId)
@@ -404,6 +469,13 @@ export function NodeTester() {
                 )}
                 {selectedNode.type === 'lfo' && (
                   <LFOProperties config={selectedNode.config} onChange={updateConfig} outputs={outputs[selectedNode.id]} />
+                )}
+                {selectedNode.type === 'physics' && (
+                  <PhysicsProperties
+                    config={selectedNode.config}
+                    onChange={updateConfig}
+                    availableLfos={activeNodes.filter(n => n.type === 'lfo')}
+                  />
                 )}
               </div>
 
@@ -1128,6 +1200,459 @@ function LFOProperties({ config, onChange, outputs }: { config: any; onChange: (
             value={config.max}
             onChange={e => onChange('max', Number(e.target.value))}
           />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function PhysicsProperties({ config, onChange, availableLfos }: { config: any; onChange: (k: string, v: any) => void; availableLfos: ActiveNode[] }) {
+  return (
+    <>
+      <div className={styles.propGroup}>
+        <div className={styles.propGroupTitle}>Mode</div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Mode</span>
+          <select
+            className={styles.propSelect}
+            value={config.mode}
+            onChange={e => onChange('mode', e.target.value)}
+          >
+            <option value="Gravity">Gravity</option>
+            <option value="Bounce">Bounce</option>
+            <option value="Parabola">Parabola</option>
+            <option value="Collision">Collision</option>
+            <option value="Attractor">Attractor</option>
+            <option value="RandomPath">Random Path</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Gravity Mode Settings */}
+      {(config.mode === 'Gravity' || config.mode === 'Parabola') && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Gravity</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.gravityEnabled}
+                onChange={e => onChange('gravityEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="0.1"
+                value={config.gravityStrength}
+                onChange={e => onChange('gravityStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.gravityStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Direction</span>
+            <select
+              className={styles.propSelect}
+              value={config.gravityDirection}
+              onChange={e => onChange('gravityDirection', e.target.value)}
+            >
+              <option value="Down">Down</option>
+              <option value="Up">Up</option>
+              <option value="Left">Left</option>
+              <option value="Right">Right</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          {config.gravityDirection === 'Custom' && (
+            <>
+              <div className={styles.propRow}>
+                <span className={styles.propLabel}>Custom X</span>
+                <input
+                  type="number"
+                  className={styles.propInput}
+                  value={config.customGravityX}
+                  onChange={e => onChange('customGravityX', Number(e.target.value))}
+                />
+              </div>
+              <div className={styles.propRow}>
+                <span className={styles.propLabel}>Custom Y</span>
+                <input
+                  type="number"
+                  className={styles.propInput}
+                  value={config.customGravityY}
+                  onChange={e => onChange('customGravityY', Number(e.target.value))}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Bounce Mode Settings */}
+      {config.mode === 'Bounce' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Bounce</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.bounceEnabled}
+                onChange={e => onChange('bounceEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Bounce Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.bounceStrength}
+                onChange={e => onChange('bounceStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.bounceStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Bounce Decay</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.bounceDecay}
+                onChange={e => onChange('bounceDecay', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.bounceDecay}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Elasticity</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.elasticity}
+                onChange={e => onChange('elasticity', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.elasticity}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parabola Mode Settings */}
+      {config.mode === 'Parabola' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Parabola</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.parabolaEnabled}
+                onChange={e => onChange('parabolaEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Initial Velocity X</span>
+            <input
+              type="number"
+              className={styles.propInput}
+              value={config.initialVelocityX}
+              onChange={e => onChange('initialVelocityX', Number(e.target.value))}
+            />
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Initial Velocity Y</span>
+            <input
+              type="number"
+              className={styles.propInput}
+              value={config.initialVelocityY}
+              onChange={e => onChange('initialVelocityY', Number(e.target.value))}
+            />
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Air Resistance</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="0.1"
+                step="0.001"
+                value={config.airResistance}
+                onChange={e => onChange('airResistance', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.airResistance}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collision Mode Settings */}
+      {config.mode === 'Collision' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Collision</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.collisionEnabled}
+                onChange={e => onChange('collisionEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Repulsion</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.repulsionStrength}
+                onChange={e => onChange('repulsionStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.repulsionStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Attraction</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.attractionStrength}
+                onChange={e => onChange('attractionStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractionStrength}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attractor Mode Settings */}
+      {config.mode === 'Attractor' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Attractor</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.attractorEnabled}
+                onChange={e => onChange('attractorEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.attractorStrength}
+                onChange={e => onChange('attractorStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractorStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Radius</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="300"
+                step="1"
+                value={config.attractorRadius}
+                onChange={e => onChange('attractorRadius', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractorRadius}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Random Path Mode Settings */}
+      {config.mode === 'RandomPath' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Random Path</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.randomPathEnabled}
+                onChange={e => onChange('randomPathEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Randomness</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.randomness}
+                onChange={e => onChange('randomness', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.randomness}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Complexity</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={config.pathComplexity}
+                onChange={e => onChange('pathComplexity', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.pathComplexity}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Speed</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={config.movementSpeed}
+                onChange={e => onChange('movementSpeed', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.movementSpeed}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Object Properties */}
+      <div className={styles.propGroup}>
+        <div className={styles.propGroupTitle}>Object Properties</div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Mass</span>
+          <div className={styles.propSlider}>
+            <input
+              type="range"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={config.mass}
+              onChange={e => onChange('mass', Number(e.target.value))}
+            />
+            <span className={styles.propSliderValue}>{config.mass}</span>
+          </div>
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Friction</span>
+          <div className={styles.propSlider}>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={config.friction}
+              onChange={e => onChange('friction', Number(e.target.value))}
+            />
+            <span className={styles.propSliderValue}>{config.friction}</span>
+          </div>
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Position X</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.positionX}
+            onChange={e => onChange('positionX', Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Position Y</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.positionY}
+            onChange={e => onChange('positionY', Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Velocity X</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.velocityX}
+            onChange={e => onChange('velocityX', Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Velocity Y</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.velocityY}
+            onChange={e => onChange('velocityY', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      {/* Output Configuration */}
+      <div className={styles.propGroup}>
+        <div className={styles.propGroupTitle}>Output</div>
+        <div className={styles.propRow}>
+          <label className={styles.propCheckbox}>
+            <input
+              type="checkbox"
+              checked={config.outputPosition}
+              onChange={e => onChange('outputPosition', e.target.checked)}
+            />
+            Output Position
+          </label>
+        </div>
+        <div className={styles.propRow}>
+          <label className={styles.propCheckbox}>
+            <input
+              type="checkbox"
+              checked={config.outputVelocity}
+              onChange={e => onChange('outputVelocity', e.target.checked)}
+            />
+            Output Velocity
+          </label>
+        </div>
+        <div className={styles.propRow}>
+          <label className={styles.propCheckbox}>
+            <input
+              type="checkbox"
+              checked={config.outputAcceleration}
+              onChange={e => onChange('outputAcceleration', e.target.checked)}
+            />
+            Output Acceleration
+          </label>
         </div>
       </div>
     </>
