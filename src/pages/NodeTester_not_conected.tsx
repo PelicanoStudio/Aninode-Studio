@@ -1,19 +1,17 @@
 import { aninodeStore } from '@core/store'
-import { CollisionNode, CollisionNodeProps } from '@nodes/CollisionNode'
 import { LFONode, LFONodeProps } from '@nodes/LFONode'
 import { OpacityNode, OpacityNodeProps } from '@nodes/OpacityNode'
-import { PhysicsNodeFallback, PhysicsNodeProps } from '@nodes/PhysicsNode'
+import { PhysicsNode, PhysicsNodeProps } from '@nodes/PhysicsNode'
 import { RotationNode, RotationNodeProps } from '@nodes/RotationNode'
 import { ScaleNode, ScaleNodeProps } from '@nodes/ScaleNode'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './NodeTester.module.css'
 
-type NodeTypeKey = 'rotation' | 'scale' | 'opacity' | 'lfo' | 'physics' | 'collision'
+type NodeTypeKey = 'rotation' | 'scale' | 'opacity' | 'lfo' | 'physics'
 
 type ActiveNode = {
   type: NodeTypeKey
   id: string
-  targetId?: string // The test object this node affects
   config: any
 }
 
@@ -79,70 +77,41 @@ const DEFAULT_CONFIGS: Record<NodeTypeKey, any> = {
   },
   physics: {
     name: 'Physics',
-    mode: 'Dynamic',
-    colliderShape: 'Cuboid',
+    mode: 'Gravity',
+    gravityEnabled: true,
+    gravityStrength: 9.8,
+    gravityDirection: 'Down',
+    customGravityX: 0,
+    customGravityY: 0,
+    bounceEnabled: false,
+    bounceStrength: 0.8,
+    bounceDecay: 0.95,
+    elasticity: 0.7,
+    parabolaEnabled: false,
+    initialVelocityX: 0,
+    initialVelocityY: 0,
+    airResistance: 0.01,
+    collisionEnabled: false,
+    collisionObjects: [],
+    repulsionStrength: 1,
+    attractionStrength: 1,
+    attractorEnabled: false,
+    attractorObjects: [],
+    attractorStrength: 1,
+    attractorRadius: 100,
+    randomPathEnabled: false,
+    randomness: 0.5,
+    pathComplexity: 5,
+    movementSpeed: 1,
     mass: 1,
-    friction: 0.5,
-    restitution: 0.5,
-    linearDamping: 0.1,
-    angularDamping: 0.1,
-    initialPositionX: 0,
-    initialPositionY: 0,
-    initialPositionZ: 0,
-    initialVelocityX: 50,
-    initialVelocityY: -100,
-    initialVelocityZ: 0,
-    initialRotation: 0,
-    colliderWidth: 1,
-    colliderHeight: 1,
-    colliderDepth: 1,
-    colliderRadius: 0.5,
-    is2DMode: true,
-    lockRotationX: true,
-    lockRotationY: true,
-    lockRotationZ: false,
-    lockTranslationX: false,
-    lockTranslationY: false,
-    lockTranslationZ: true,
-    forceMode: 'Gravity',
-    gravityScale: 1,
-    forceStrength: 10,
-    forceDirectionX: 0,
-    forceDirectionY: -1,
-    forceDirectionZ: 0,
-    attractorTargetX: 0,
-    attractorTargetY: 0,
-    attractorTargetZ: 0,
-    attractorRadius: 10,
-    attractorFalloff: 'Quadratic',
-    collisionGroup: 0,
-    collisionMask: 0xFFFF,
-    isSensor: false,
-    ccdEnabled: false,
+    friction: 0.1,
+    positionX: 0,
+    positionY: 0,
+    velocityX: 0,
+    velocityY: 0,
     outputPosition: true,
     outputVelocity: true,
-    outputRotation: true,
-    outputCollisions: false,
-    pixelScale: 1,
-  },
-  collision: {
-    name: 'Collision',
-    shape: 'Box',
-    shapeWidth: 100,
-    shapeHeight: 100,
-    shapeOffsetX: 0,
-    shapeOffsetY: 0,
-    autoShape: true,
-    surfaceType: 'Solid',
-    platformDirection: 'Up',
-    collisionGroup: 1,
-    collisionMask: 0xFFFF,
-    friction: 0.5,
-    bounciness: 0.3,
-    adhesion: 0,
-    onCollisionResponse: 'Bounce',
-    outputCollisions: true,
-    outputOverlaps: false,
+    outputAcceleration: false,
   },
 }
 
@@ -151,33 +120,7 @@ export function NodeTester() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [outputs, setOutputs] = useState<Record<string, any>>({})
-  const [resetKey, setResetKey] = useState(0)
   const rafRef = useRef<number>()
-
-  // Test objects for physics testing
-  type TestObject = {
-    id: string
-    type: 'floor' | 'ball' | 'box'
-    x: number
-    y: number
-    width: number
-    height: number
-    color: string
-    isDragging: boolean
-    isStatic: boolean
-  }
-
-  const [testObjects, setTestObjects] = useState<TestObject[]>([
-    // Floor (static)
-    { id: 'floor', type: 'floor', x: 0, y: 120, width: 300, height: 20, color: '#444', isDragging: false, isStatic: true },
-    // Dynamic ball
-    { id: 'ball1', type: 'ball', x: -50, y: -80, width: 40, height: 40, color: '#4a9eff', isDragging: false, isStatic: false },
-    // Dynamic box
-    { id: 'box1', type: 'box', x: 50, y: -60, width: 50, height: 50, color: '#ff6b6b', isDragging: false, isStatic: false },
-  ])
-
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>('ball1')
-  const dragRef = useRef<{ startX: number; startY: number; objX: number; objY: number } | null>(null)
 
   // Get selected node
   const selectedNode = activeNodes.find(n => n.id === selectedNodeId)
@@ -193,23 +136,11 @@ export function NodeTester() {
     const newNode: ActiveNode = {
       type,
       id,
-      targetId: selectedObjectId || 'ball1', // Default to selected object or ball1
       config: { ...DEFAULT_CONFIGS[type], name: displayName },
     }
     setActiveNodes(prev => [...prev, newNode])
     setSelectedNodeId(id)
     setIsPlaying(true)
-  }
-
-  // Reset simulation
-  const resetSimulation = () => {
-    setTestObjects([
-      { id: 'floor', type: 'floor', x: 0, y: 120, width: 300, height: 20, color: '#444', isDragging: false, isStatic: true },
-      { id: 'ball1', type: 'ball', x: -50, y: -80, width: 40, height: 40, color: '#4a9eff', isDragging: false, isStatic: false },
-      { id: 'box1', type: 'box', x: 50, y: -60, width: 50, height: 50, color: '#ff6b6b', isDragging: false, isStatic: false },
-    ])
-    // Increment reset key to force re-mount of physics nodes
-    setResetKey(prev => prev + 1)
   }
 
   // Update node config
@@ -224,18 +155,6 @@ export function NodeTester() {
     )
   }
 
-  // Update node target
-  const updateTarget = (targetId: string) => {
-    if (!selectedNodeId) return
-    setActiveNodes(prev =>
-      prev.map(node =>
-        node.id === selectedNodeId
-          ? { ...node, targetId }
-          : node
-      )
-    )
-  }
-
   // Remove node
   const removeNode = (id: string) => {
     setActiveNodes(prev => prev.filter(n => n.id !== id))
@@ -245,14 +164,11 @@ export function NodeTester() {
   }
 
   // Poll outputs
-  // Poll outputs and apply physics
   useEffect(() => {
     if (!isPlaying || activeNodes.length === 0) return
 
     const update = () => {
       const newOutputs: Record<string, any> = {}
-      
-      // 1. Collect outputs
       activeNodes.forEach(node => {
         const storeNode = aninodeStore.nodes[node.id]
         if (storeNode?.outputs) {
@@ -260,41 +176,6 @@ export function NodeTester() {
         }
       })
       setOutputs(newOutputs)
-
-      // 2. Apply physics/transforms to test objects
-      setTestObjects(prevObjects => {
-        return prevObjects.map(obj => {
-          let newObj = { ...obj }
-          
-          // Find nodes targeting this object
-          const targetingNodes = activeNodes.filter(n => n.targetId === obj.id)
-          
-          targetingNodes.forEach(node => {
-            const out = newOutputs[node.id]
-            if (!out) return
-
-            // Apply Physics (Position/Velocity)
-            if (node.type === 'physics') {
-              if (out.positionX !== undefined) newObj.x = out.positionX
-              if (out.positionY !== undefined) newObj.y = out.positionY
-            }
-
-            // Apply Rotation
-            if (node.type === 'rotation' && out.rotation !== undefined) {
-              // For now, we don't have rotation on test objects, but we could add it
-              // newObj.rotation = out.rotation
-            }
-            
-            // Apply Scale
-            if (node.type === 'scale') {
-               // newObj.scaleX = out.scaleX
-            }
-          })
-          
-          return newObj
-        })
-      })
-
       rafRef.current = requestAnimationFrame(update)
     }
 
@@ -397,9 +278,7 @@ export function NodeTester() {
         case 'lfo':
           return <LFONode key={node.id} {...props as LFONodeProps} />
         case 'physics':
-          return <PhysicsNodeFallback key={`${node.id}-${resetKey}`} {...props as PhysicsNodeProps} />
-        case 'collision':
-          return <CollisionNode key={`${node.id}-${resetKey}`} {...props as CollisionNodeProps} />
+          return <PhysicsNode key={node.id} {...props as PhysicsNodeProps} />
         default:
           return null
       }
@@ -430,7 +309,6 @@ export function NodeTester() {
                   {node.type === 'opacity' && '◐'}
                   {node.type === 'lfo' && '∿'}
                   {node.type === 'physics' && '⚡'}
-                  {node.type === 'collision' && '▣'}
                 </span>
                 {node.config.name || node.type}
                 <span
@@ -463,9 +341,6 @@ export function NodeTester() {
           <button className={styles.nodeBtn} onClick={() => addNode('physics')}>
             + Physics
           </button>
-          <button className={styles.nodeBtn} onClick={() => addNode('collision')}>
-            + Collision
-          </button>
         </div>
       </div>
 
@@ -480,12 +355,6 @@ export function NodeTester() {
             >
               {isPlaying ? '■ Stop' : '▶ Play'}
             </button>
-            <button
-              className={styles.toolBtn}
-              onClick={resetSimulation}
-            >
-              ↺ Reset
-            </button>
             {selectedNode && (
               <button
                 className={styles.toolBtn}
@@ -499,75 +368,42 @@ export function NodeTester() {
           <div className={styles.canvas}>
             <div className={styles.canvasGrid} />
 
-            {/* Test Objects for collision testing */}
-            <div 
-              className={styles.testObjectsContainer}
-              onMouseMove={(e) => {
-                const draggingObj = testObjects.find(o => o.isDragging)
-                if (draggingObj && dragRef.current) {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const mouseX = e.clientX - rect.left - rect.width / 2
-                  const mouseY = e.clientY - rect.top - rect.height / 2
-                  const deltaX = mouseX - dragRef.current.startX
-                  const deltaY = mouseY - dragRef.current.startY
-                  
-                  const currentDrag = dragRef.current
-                  
-                  setTestObjects(prev => prev.map(obj => 
-                    obj.id === draggingObj.id 
-                      ? { ...obj, x: currentDrag.objX + deltaX, y: currentDrag.objY + deltaY }
-                      : obj
-                  ))
-                }
-              }}
-              onMouseUp={() => {
-                setTestObjects(prev => prev.map(obj => ({ ...obj, isDragging: false })))
-                dragRef.current = null
-              }}
-              onMouseLeave={() => {
-                setTestObjects(prev => prev.map(obj => ({ ...obj, isDragging: false })))
-                dragRef.current = null
-              }}
-            >
-              {testObjects.map(obj => (
-                <div
-                  key={obj.id}
-                  className={`${styles.testObject} ${obj.isStatic ? styles.staticObject : styles.dynamicObject} ${selectedObjectId === obj.id ? styles.selectedObject : ''}`}
-                  style={{
-                    left: `calc(50% + ${obj.x}px)`,
-                    top: `calc(50% + ${obj.y}px)`,
-                    width: obj.width,
-                    height: obj.height,
-                    backgroundColor: obj.color,
-                    borderRadius: obj.type === 'ball' ? '50%' : '4px',
-                    cursor: obj.isStatic ? 'default' : 'grab',
-                  }}
-                  onMouseDown={(e) => {
-                    if (obj.isStatic) return
-                    e.preventDefault()
-                    const rect = e.currentTarget.parentElement!.getBoundingClientRect()
-                    const mouseX = e.clientX - rect.left - rect.width / 2
-                    const mouseY = e.clientY - rect.top - rect.height / 2
-                    
-                    dragRef.current = { startX: mouseX, startY: mouseY, objX: obj.x, objY: obj.y }
-                    setTestObjects(prev => prev.map(o => 
-                      o.id === obj.id ? { ...o, isDragging: true } : o
-                    ))
-                    setSelectedObjectId(obj.id)
-                  }}
-                  onClick={() => setSelectedObjectId(obj.id)}
-                >
-                  <span className={styles.testObjectLabel}>{obj.id}</span>
-                </div>
-              ))}
-            </div>
-
             {activeNodes.length === 0 ? (
               <div className={styles.noSelection}>
                 <p>Add a node to start testing</p>
               </div>
             ) : (
               <>
+                <div className={styles.previewContainer}>
+                  {/* Nested wrappers for independent anchor points per transform type */}
+                  {(() => {
+                    const { rotationStyle, scaleStyle, opacityValue } = getTransformLayers()
+                    return (
+                      // Outer wrapper: Rotation (with its own transform-origin)
+                      <div style={rotationStyle} className={styles.transformLayer}>
+                        {/* Middle wrapper: Scale (with its own transform-origin) */}
+                        <div style={scaleStyle} className={styles.transformLayer}>
+                          {/* Inner: The actual preview box with opacity */}
+                          <div
+                            className={`${styles.previewBox} ${selectedNodeId ? styles.selected : ''}`}
+                            style={{ opacity: opacityValue }}
+                            onClick={() => {
+                              // Cycle through nodes on click
+                              if (activeNodes.length > 0) {
+                                const currentIndex = activeNodes.findIndex(n => n.id === selectedNodeId)
+                                const nextIndex = (currentIndex + 1) % activeNodes.length
+                                setSelectedNodeId(activeNodes[nextIndex].id)
+                              }
+                            }}
+                          >
+                            <span className={styles.previewArrow}>→</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+
                 {/* Show combined effects */}
                 <div className={styles.previewInfo}>
                   {getActiveEffects().map((effect, i) => (
@@ -584,22 +420,8 @@ export function NodeTester() {
           {selectedNode ? (
             <>
               <div className={styles.sidePanelHeader}>
-                <div>
-                  <h2>{selectedNode.config.name || selectedNode.type}</h2>
-                  <span className={styles.nodeTypeTag}>{selectedNode.type}</span>
-                </div>
-                <div style={{ marginLeft: 'auto' }}>
-                  <select
-                    className={styles.propSelect}
-                    style={{ width: 100, fontSize: 10, padding: '2px 4px' }}
-                    value={selectedNode.targetId || ''}
-                    onChange={e => updateTarget(e.target.value)}
-                  >
-                    {testObjects.map(obj => (
-                      <option key={obj.id} value={obj.id}>{obj.id}</option>
-                    ))}
-                  </select>
-                </div>
+                <h2>{selectedNode.config.name || selectedNode.type}</h2>
+                <span className={styles.nodeTypeTag}>{selectedNode.type}</span>
               </div>
 
               <div className={styles.sidePanelContent}>
@@ -629,10 +451,11 @@ export function NodeTester() {
                   <LFOProperties config={selectedNode.config} onChange={updateConfig} outputs={outputs[selectedNode.id]} />
                 )}
                 {selectedNode.type === 'physics' && (
-                  <PhysicsProperties config={selectedNode.config} onChange={updateConfig} />
-                )}
-                {selectedNode.type === 'collision' && (
-                  <CollisionProperties config={selectedNode.config} onChange={updateConfig} />
+                  <PhysicsProperties
+                    config={selectedNode.config}
+                    onChange={updateConfig}
+                    availableLfos={activeNodes.filter(n => n.type === 'lfo')}
+                  />
                 )}
               </div>
 
@@ -1363,12 +1186,11 @@ function LFOProperties({ config, onChange, outputs }: { config: any; onChange: (
   )
 }
 
-// Physics Properties
-function PhysicsProperties({ config, onChange }: { config: any; onChange: (k: string, v: any) => void }) {
+function PhysicsProperties({ config, onChange, availableLfos }: { config: any; onChange: (k: string, v: any) => void; availableLfos: ActiveNode[] }) {
   return (
     <>
       <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Physics Mode</div>
+        <div className={styles.propGroupTitle}>Mode</div>
         <div className={styles.propRow}>
           <span className={styles.propLabel}>Mode</span>
           <select
@@ -1376,11 +1198,343 @@ function PhysicsProperties({ config, onChange }: { config: any; onChange: (k: st
             value={config.mode}
             onChange={e => onChange('mode', e.target.value)}
           >
-            <option value="Dynamic">Dynamic</option>
-            <option value="Static">Static</option>
-            <option value="Kinematic">Kinematic</option>
+            <option value="Gravity">Gravity</option>
+            <option value="Bounce">Bounce</option>
+            <option value="Parabola">Parabola</option>
+            <option value="Collision">Collision</option>
+            <option value="Attractor">Attractor</option>
+            <option value="RandomPath">Random Path</option>
           </select>
         </div>
+      </div>
+
+      {/* Gravity Mode Settings */}
+      {(config.mode === 'Gravity' || config.mode === 'Parabola') && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Gravity</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.gravityEnabled}
+                onChange={e => onChange('gravityEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="0.1"
+                value={config.gravityStrength}
+                onChange={e => onChange('gravityStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.gravityStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Direction</span>
+            <select
+              className={styles.propSelect}
+              value={config.gravityDirection}
+              onChange={e => onChange('gravityDirection', e.target.value)}
+            >
+              <option value="Down">Down</option>
+              <option value="Up">Up</option>
+              <option value="Left">Left</option>
+              <option value="Right">Right</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          {config.gravityDirection === 'Custom' && (
+            <>
+              <div className={styles.propRow}>
+                <span className={styles.propLabel}>Custom X</span>
+                <input
+                  type="number"
+                  className={styles.propInput}
+                  value={config.customGravityX}
+                  onChange={e => onChange('customGravityX', Number(e.target.value))}
+                />
+              </div>
+              <div className={styles.propRow}>
+                <span className={styles.propLabel}>Custom Y</span>
+                <input
+                  type="number"
+                  className={styles.propInput}
+                  value={config.customGravityY}
+                  onChange={e => onChange('customGravityY', Number(e.target.value))}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Bounce Mode Settings */}
+      {config.mode === 'Bounce' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Bounce</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.bounceEnabled}
+                onChange={e => onChange('bounceEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Bounce Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.bounceStrength}
+                onChange={e => onChange('bounceStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.bounceStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Bounce Decay</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.bounceDecay}
+                onChange={e => onChange('bounceDecay', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.bounceDecay}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Elasticity</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.elasticity}
+                onChange={e => onChange('elasticity', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.elasticity}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parabola Mode Settings */}
+      {config.mode === 'Parabola' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Parabola</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.parabolaEnabled}
+                onChange={e => onChange('parabolaEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Initial Velocity X</span>
+            <input
+              type="number"
+              className={styles.propInput}
+              value={config.initialVelocityX}
+              onChange={e => onChange('initialVelocityX', Number(e.target.value))}
+            />
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Initial Velocity Y</span>
+            <input
+              type="number"
+              className={styles.propInput}
+              value={config.initialVelocityY}
+              onChange={e => onChange('initialVelocityY', Number(e.target.value))}
+            />
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Air Resistance</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="0.1"
+                step="0.001"
+                value={config.airResistance}
+                onChange={e => onChange('airResistance', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.airResistance}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collision Mode Settings */}
+      {config.mode === 'Collision' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Collision</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.collisionEnabled}
+                onChange={e => onChange('collisionEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Repulsion</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.repulsionStrength}
+                onChange={e => onChange('repulsionStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.repulsionStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Attraction</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.attractionStrength}
+                onChange={e => onChange('attractionStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractionStrength}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attractor Mode Settings */}
+      {config.mode === 'Attractor' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Attractor</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.attractorEnabled}
+                onChange={e => onChange('attractorEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Strength</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.attractorStrength}
+                onChange={e => onChange('attractorStrength', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractorStrength}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Radius</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="300"
+                step="1"
+                value={config.attractorRadius}
+                onChange={e => onChange('attractorRadius', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.attractorRadius}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Random Path Mode Settings */}
+      {config.mode === 'RandomPath' && (
+        <div className={styles.propGroup}>
+          <div className={styles.propGroupTitle}>Random Path</div>
+          <div className={styles.propRow}>
+            <label className={styles.propCheckbox}>
+              <input
+                type="checkbox"
+                checked={config.randomPathEnabled}
+                onChange={e => onChange('randomPathEnabled', e.target.checked)}
+              />
+              Enabled
+            </label>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Randomness</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.randomness}
+                onChange={e => onChange('randomness', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.randomness}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Complexity</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                value={config.pathComplexity}
+                onChange={e => onChange('pathComplexity', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.pathComplexity}</span>
+            </div>
+          </div>
+          <div className={styles.propRow}>
+            <span className={styles.propLabel}>Speed</span>
+            <div className={styles.propSlider}>
+              <input
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                value={config.movementSpeed}
+                onChange={e => onChange('movementSpeed', Number(e.target.value))}
+              />
+              <span className={styles.propSliderValue}>{config.movementSpeed}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Object Properties */}
+      <div className={styles.propGroup}>
+        <div className={styles.propGroupTitle}>Object Properties</div>
         <div className={styles.propRow}>
           <span className={styles.propLabel}>Mass</span>
           <div className={styles.propSlider}>
@@ -1395,151 +1549,6 @@ function PhysicsProperties({ config, onChange }: { config: any; onChange: (k: st
             <span className={styles.propSliderValue}>{config.mass}</span>
           </div>
         </div>
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Forces</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Gravity</span>
-          <div className={styles.propSlider}>
-            <input
-              type="range"
-              min="0"
-              max="3"
-              step="0.1"
-              value={config.gravityScale}
-              onChange={e => onChange('gravityScale', Number(e.target.value))}
-            />
-            <span className={styles.propSliderValue}>{config.gravityScale}</span>
-          </div>
-        </div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Damping</span>
-          <div className={styles.propSlider}>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={config.linearDamping}
-              onChange={e => onChange('linearDamping', Number(e.target.value))}
-            />
-            <span className={styles.propSliderValue}>{config.linearDamping}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Initial State</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Velocity X</span>
-          <input
-            type="number"
-            className={styles.propInput}
-            value={config.initialVelocityX}
-            onChange={e => onChange('initialVelocityX', Number(e.target.value))}
-          />
-        </div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Velocity Y</span>
-          <input
-            type="number"
-            className={styles.propInput}
-            value={config.initialVelocityY}
-            onChange={e => onChange('initialVelocityY', Number(e.target.value))}
-          />
-        </div>
-      </div>
-    </>
-  )
-}
-
-// Collision Properties
-function CollisionProperties({ config, onChange }: { config: any; onChange: (k: string, v: any) => void }) {
-  return (
-    <>
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Collision Shape</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Shape</span>
-          <select
-            className={styles.propSelect}
-            value={config.shape}
-            onChange={e => onChange('shape', e.target.value)}
-          >
-            <option value="Box">Box</option>
-            <option value="Circle">Circle</option>
-            <option value="Capsule">Capsule</option>
-            <option value="Polygon">Polygon</option>
-          </select>
-        </div>
-        <div className={styles.propRow}>
-          <label className={styles.propCheckbox}>
-            <input
-              type="checkbox"
-              checked={config.autoShape}
-              onChange={e => onChange('autoShape', e.target.checked)}
-            />
-            Auto Shape
-          </label>
-        </div>
-        {!config.autoShape && (
-          <>
-            <div className={styles.propRow}>
-              <span className={styles.propLabel}>Width</span>
-              <input
-                type="number"
-                className={styles.propInput}
-                value={config.shapeWidth}
-                onChange={e => onChange('shapeWidth', Number(e.target.value))}
-              />
-            </div>
-            <div className={styles.propRow}>
-              <span className={styles.propLabel}>Height</span>
-              <input
-                type="number"
-                className={styles.propInput}
-                value={config.shapeHeight}
-                onChange={e => onChange('shapeHeight', Number(e.target.value))}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Surface Type</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Type</span>
-          <select
-            className={styles.propSelect}
-            value={config.surfaceType}
-            onChange={e => onChange('surfaceType', e.target.value)}
-          >
-            <option value="Solid">Solid</option>
-            <option value="Trigger">Trigger (detect only)</option>
-            <option value="Platform">Platform (one-way)</option>
-          </select>
-        </div>
-        {config.surfaceType === 'Platform' && (
-          <div className={styles.propRow}>
-            <span className={styles.propLabel}>Direction</span>
-            <select
-              className={styles.propSelect}
-              value={config.platformDirection}
-              onChange={e => onChange('platformDirection', e.target.value)}
-            >
-              <option value="Up">Up</option>
-              <option value="Down">Down</option>
-              <option value="Left">Left</option>
-              <option value="Right">Right</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Surface Properties</div>
         <div className={styles.propRow}>
           <span className={styles.propLabel}>Friction</span>
           <div className={styles.propSlider}>
@@ -1547,7 +1556,7 @@ function CollisionProperties({ config, onChange }: { config: any; onChange: (k: 
               type="range"
               min="0"
               max="1"
-              step="0.1"
+              step="0.01"
               value={config.friction}
               onChange={e => onChange('friction', Number(e.target.value))}
             />
@@ -1555,83 +1564,74 @@ function CollisionProperties({ config, onChange }: { config: any; onChange: (k: 
           </div>
         </div>
         <div className={styles.propRow}>
-          <span className={styles.propLabel}>Bounciness</span>
-          <div className={styles.propSlider}>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={config.bounciness}
-              onChange={e => onChange('bounciness', Number(e.target.value))}
-            />
-            <span className={styles.propSliderValue}>{config.bounciness}</span>
-          </div>
-        </div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Adhesion</span>
-          <div className={styles.propSlider}>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={config.adhesion}
-              onChange={e => onChange('adhesion', Number(e.target.value))}
-            />
-            <span className={styles.propSliderValue}>{config.adhesion}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Collision Response</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>On Collision</span>
-          <select
-            className={styles.propSelect}
-            value={config.onCollisionResponse}
-            onChange={e => onChange('onCollisionResponse', e.target.value)}
-          >
-            <option value="Bounce">Bounce</option>
-            <option value="Stick">Stick</option>
-            <option value="Stop">Stop</option>
-            <option value="Pass">Pass Through</option>
-          </select>
-        </div>
-      </div>
-
-      <div className={styles.propGroup}>
-        <div className={styles.propGroupTitle}>Collision Groups</div>
-        <div className={styles.propRow}>
-          <span className={styles.propLabel}>Group</span>
+          <span className={styles.propLabel}>Position X</span>
           <input
             type="number"
             className={styles.propInput}
-            min="0"
-            max="15"
-            value={config.collisionGroup}
-            onChange={e => onChange('collisionGroup', Number(e.target.value))}
+            value={config.positionX}
+            onChange={e => onChange('positionX', Number(e.target.value))}
           />
         </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Position Y</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.positionY}
+            onChange={e => onChange('positionY', Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Velocity X</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.velocityX}
+            onChange={e => onChange('velocityX', Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.propRow}>
+          <span className={styles.propLabel}>Velocity Y</span>
+          <input
+            type="number"
+            className={styles.propInput}
+            value={config.velocityY}
+            onChange={e => onChange('velocityY', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      {/* Output Configuration */}
+      <div className={styles.propGroup}>
+        <div className={styles.propGroupTitle}>Output</div>
         <div className={styles.propRow}>
           <label className={styles.propCheckbox}>
             <input
               type="checkbox"
-              checked={config.outputCollisions}
-              onChange={e => onChange('outputCollisions', e.target.checked)}
+              checked={config.outputPosition}
+              onChange={e => onChange('outputPosition', e.target.checked)}
             />
-            Output Collisions
+            Output Position
           </label>
         </div>
         <div className={styles.propRow}>
           <label className={styles.propCheckbox}>
             <input
               type="checkbox"
-              checked={config.outputOverlaps}
-              onChange={e => onChange('outputOverlaps', e.target.checked)}
+              checked={config.outputVelocity}
+              onChange={e => onChange('outputVelocity', e.target.checked)}
             />
-            Output Overlaps
+            Output Velocity
+          </label>
+        </div>
+        <div className={styles.propRow}>
+          <label className={styles.propCheckbox}>
+            <input
+              type="checkbox"
+              checked={config.outputAcceleration}
+              onChange={e => onChange('outputAcceleration', e.target.checked)}
+            />
+            Output Acceleration
           </label>
         </div>
       </div>

@@ -13,6 +13,8 @@ export type NodeType =
   | 'LFONode'
   | 'CurveNode'
   | 'TriggerNode'
+    // Physics nodes
+  | 'PhysicsNode'
   // Scene control
   | 'SceneAnimatorNode'
   | 'ObjectPickerNode'
