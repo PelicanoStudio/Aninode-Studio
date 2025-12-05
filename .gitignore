@@ -57,6 +57,9 @@ target/
 *.a
 *.out
 
+# Dev files
+quick_reference/
+
 # Dependencies
 node_modules/
 venv/

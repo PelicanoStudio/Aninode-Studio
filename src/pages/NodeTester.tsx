@@ -1,3 +1,4 @@
+import { PhysicsTestObject } from '@components/PhysicsTestObject'
 import { aninodeStore } from '@core/store'
 import { CollisionNode, CollisionNodeProps } from '@nodes/CollisionNode'
 import { LFONode, LFONodeProps } from '@nodes/LFONode'
@@ -5,7 +6,10 @@ import { OpacityNode, OpacityNodeProps } from '@nodes/OpacityNode'
 import { PhysicsNodeFallback, PhysicsNodeProps } from '@nodes/PhysicsNode'
 import { RotationNode, RotationNodeProps } from '@nodes/RotationNode'
 import { ScaleNode, ScaleNodeProps } from '@nodes/ScaleNode'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { OrthographicCamera } from '@react-three/drei'
+import { Canvas } from '@react-three/fiber'
+import { Physics } from '@react-three/rapier'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './NodeTester.module.css'
 
 type NodeTypeKey = 'rotation' | 'scale' | 'opacity' | 'lfo' | 'physics' | 'collision'
@@ -158,26 +162,40 @@ export function NodeTester() {
   type TestObject = {
     id: string
     type: 'floor' | 'ball' | 'box'
+    // Position
     x: number
     y: number
+    // Velocity
+    vx: number
+    vy: number
+    // Transforms
+    rotation: number
+    scaleX: number
+    scaleY: number
+    opacity: number
+    // Dimensions
     width: number
     height: number
+    // Visual
     color: string
+    // State
     isDragging: boolean
     isStatic: boolean
   }
 
-  const [testObjects, setTestObjects] = useState<TestObject[]>([
+  const createInitialObjects = (): TestObject[] => [
     // Floor (static)
-    { id: 'floor', type: 'floor', x: 0, y: 120, width: 300, height: 20, color: '#444', isDragging: false, isStatic: true },
+    { id: 'floor', type: 'floor', x: 0, y: 120, width: 300, height: 20, color: '#444', vx: 0, vy: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, isDragging: false, isStatic: true },
     // Dynamic ball
-    { id: 'ball1', type: 'ball', x: -50, y: -80, width: 40, height: 40, color: '#4a9eff', isDragging: false, isStatic: false },
+    { id: 'ball1', type: 'ball', x: -50, y: -80, width: 40, height: 40, color: '#4a9eff', vx: 0, vy: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, isDragging: false, isStatic: false },
     // Dynamic box
-    { id: 'box1', type: 'box', x: 50, y: -60, width: 50, height: 50, color: '#ff6b6b', isDragging: false, isStatic: false },
-  ])
+    { id: 'box1', type: 'box', x: 50, y: -60, width: 50, height: 50, color: '#ff6b6b', vx: 0, vy: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, isDragging: false, isStatic: false },
+  ]
+
+  const [testObjects, setTestObjects] = useState<TestObject[]>(createInitialObjects)
+
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>('ball1')
-  const dragRef = useRef<{ startX: number; startY: number; objX: number; objY: number } | null>(null)
 
   // Get selected node
   const selectedNode = activeNodes.find(n => n.id === selectedNodeId)
@@ -203,12 +221,7 @@ export function NodeTester() {
 
   // Reset simulation
   const resetSimulation = () => {
-    setTestObjects([
-      { id: 'floor', type: 'floor', x: 0, y: 120, width: 300, height: 20, color: '#444', isDragging: false, isStatic: true },
-      { id: 'ball1', type: 'ball', x: -50, y: -80, width: 40, height: 40, color: '#4a9eff', isDragging: false, isStatic: false },
-      { id: 'box1', type: 'box', x: 50, y: -60, width: 50, height: 50, color: '#ff6b6b', isDragging: false, isStatic: false },
-    ])
-    // Increment reset key to force re-mount of physics nodes
+    setTestObjects(createInitialObjects())
     setResetKey(prev => prev + 1)
   }
 
@@ -244,15 +257,16 @@ export function NodeTester() {
     }
   }
 
-  // Poll outputs
-  // Poll outputs and apply physics
-  useEffect(() => {
-    if (!isPlaying || activeNodes.length === 0) return
+  // ============================================================================
+  // OUTPUT POLLING (Rapier handles physics now)
+  // ============================================================================
 
-    const update = () => {
+  // Poll node outputs from aninodeStore (for visual nodes like LFO, Rotation, etc.)
+  useEffect(() => {
+    if (!isPlaying) return
+
+    const poll = () => {
       const newOutputs: Record<string, any> = {}
-      
-      // 1. Collect outputs
       activeNodes.forEach(node => {
         const storeNode = aninodeStore.nodes[node.id]
         if (storeNode?.outputs) {
@@ -260,104 +274,14 @@ export function NodeTester() {
         }
       })
       setOutputs(newOutputs)
-
-      // 2. Apply physics/transforms to test objects
-      setTestObjects(prevObjects => {
-        return prevObjects.map(obj => {
-          let newObj = { ...obj }
-          
-          // Find nodes targeting this object
-          const targetingNodes = activeNodes.filter(n => n.targetId === obj.id)
-          
-          targetingNodes.forEach(node => {
-            const out = newOutputs[node.id]
-            if (!out) return
-
-            // Apply Physics (Position/Velocity)
-            if (node.type === 'physics') {
-              if (out.positionX !== undefined) newObj.x = out.positionX
-              if (out.positionY !== undefined) newObj.y = out.positionY
-            }
-
-            // Apply Rotation
-            if (node.type === 'rotation' && out.rotation !== undefined) {
-              // For now, we don't have rotation on test objects, but we could add it
-              // newObj.rotation = out.rotation
-            }
-            
-            // Apply Scale
-            if (node.type === 'scale') {
-               // newObj.scaleX = out.scaleX
-            }
-          })
-          
-          return newObj
-        })
-      })
-
-      rafRef.current = requestAnimationFrame(update)
+      rafRef.current = requestAnimationFrame(poll)
     }
 
-    rafRef.current = requestAnimationFrame(update)
+    rafRef.current = requestAnimationFrame(poll)
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [isPlaying, activeNodes])
-
-  // Compute separate transforms for each type (to support different anchor points)
-  const getTransformLayers = () => {
-    let rotationStyle: React.CSSProperties = {}
-    let scaleStyle: React.CSSProperties = {}
-    let opacityValue = 1
-
-    // Collect transforms from all visual nodes (not LFO)
-    activeNodes.forEach(node => {
-      if (node.type === 'lfo') return
-
-      const out = outputs[node.id]
-      if (!out) return
-
-      // Rotation - each rotation node can have its own anchor
-      if (out.rotation !== undefined && node.type === 'rotation') {
-        const anchorX = out.anchorX ?? 50
-        const anchorY = out.anchorY ?? 50
-        // Combine rotations if multiple
-        const existingRotation = rotationStyle.transform
-          ? parseFloat((rotationStyle.transform as string).replace('rotate(', '').replace('deg)', ''))
-          : 0
-        rotationStyle = {
-          transform: `rotate(${existingRotation + out.rotation}deg)`,
-          transformOrigin: `${anchorX}% ${anchorY}%`,
-        }
-      }
-
-      // Scale - each scale node can have its own anchor
-      if ((out.scaleX !== undefined || out.scaleY !== undefined) && node.type === 'scale') {
-        const scaleX = out.scaleX ?? 1
-        const scaleY = out.scaleY ?? 1
-        const anchorX = out.anchorX ?? 50
-        const anchorY = out.anchorY ?? 50
-        // Combine scales if multiple (multiply)
-        const existingScaleX = scaleStyle.transform
-          ? parseFloat((scaleStyle.transform as string).split(',')[0].replace('scale(', ''))
-          : 1
-        const existingScaleY = scaleStyle.transform
-          ? parseFloat((scaleStyle.transform as string).split(',')[1]?.replace(')', '') || '1')
-          : 1
-        scaleStyle = {
-          transform: `scale(${existingScaleX * scaleX}, ${existingScaleY * scaleY})`,
-          transformOrigin: `${anchorX}% ${anchorY}%`,
-        }
-      }
-
-      // Opacity (combine by multiply)
-      if (out.opacity !== undefined) {
-        opacityValue *= out.opacity
-      }
-    })
-
-    return { rotationStyle, scaleStyle, opacityValue }
-  }
 
   // Get active effects for display
   const getActiveEffects = () => {
@@ -497,84 +421,74 @@ export function NodeTester() {
           </div>
 
           <div className={styles.canvas}>
-            <div className={styles.canvasGrid} />
-
-            {/* Test Objects for collision testing */}
-            <div 
-              className={styles.testObjectsContainer}
-              onMouseMove={(e) => {
-                const draggingObj = testObjects.find(o => o.isDragging)
-                if (draggingObj && dragRef.current) {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const mouseX = e.clientX - rect.left - rect.width / 2
-                  const mouseY = e.clientY - rect.top - rect.height / 2
-                  const deltaX = mouseX - dragRef.current.startX
-                  const deltaY = mouseY - dragRef.current.startY
-                  
-                  const currentDrag = dragRef.current
-                  
-                  setTestObjects(prev => prev.map(obj => 
-                    obj.id === draggingObj.id 
-                      ? { ...obj, x: currentDrag.objX + deltaX, y: currentDrag.objY + deltaY }
-                      : obj
-                  ))
-                }
-              }}
-              onMouseUp={() => {
-                setTestObjects(prev => prev.map(obj => ({ ...obj, isDragging: false })))
-                dragRef.current = null
-              }}
-              onMouseLeave={() => {
-                setTestObjects(prev => prev.map(obj => ({ ...obj, isDragging: false })))
-                dragRef.current = null
-              }}
+            {/* React Three Fiber Canvas with Rapier Physics */}
+            <Canvas 
+              orthographic 
+              camera={{ zoom: 2, position: [0, 0, 10] }}
+              style={{ background: '#1a1a2e' }}
             >
-              {testObjects.map(obj => (
-                <div
-                  key={obj.id}
-                  className={`${styles.testObject} ${obj.isStatic ? styles.staticObject : styles.dynamicObject} ${selectedObjectId === obj.id ? styles.selectedObject : ''}`}
-                  style={{
-                    left: `calc(50% + ${obj.x}px)`,
-                    top: `calc(50% + ${obj.y}px)`,
-                    width: obj.width,
-                    height: obj.height,
-                    backgroundColor: obj.color,
-                    borderRadius: obj.type === 'ball' ? '50%' : '4px',
-                    cursor: obj.isStatic ? 'default' : 'grab',
-                  }}
-                  onMouseDown={(e) => {
-                    if (obj.isStatic) return
-                    e.preventDefault()
-                    const rect = e.currentTarget.parentElement!.getBoundingClientRect()
-                    const mouseX = e.clientX - rect.left - rect.width / 2
-                    const mouseY = e.clientY - rect.top - rect.height / 2
-                    
-                    dragRef.current = { startX: mouseX, startY: mouseY, objX: obj.x, objY: obj.y }
-                    setTestObjects(prev => prev.map(o => 
-                      o.id === obj.id ? { ...o, isDragging: true } : o
-                    ))
-                    setSelectedObjectId(obj.id)
-                  }}
-                  onClick={() => setSelectedObjectId(obj.id)}
-                >
-                  <span className={styles.testObjectLabel}>{obj.id}</span>
-                </div>
-              ))}
-            </div>
+              <Suspense fallback={null}>
+                <ambientLight intensity={0.6} />
+                <directionalLight position={[5, 5, 5]} intensity={0.8} />
+                
+                {/* Grid visualization */}
+                <gridHelper 
+                  args={[6, 20, '#333', '#222']} 
+                  rotation={[Math.PI / 2, 0, 0]} 
+                  position={[0, 0, -0.1]} 
+                />
 
+                {/* Physics World */}
+                <Physics 
+                  gravity={[0, -9.81, 0]} 
+                  paused={!isPlaying}
+                  key={resetKey} // Force remount on reset
+                >
+                  {testObjects.map(obj => {
+                    // Find attached physics and collision nodes
+                    const physicsNode = activeNodes.find(n => n.targetId === obj.id && n.type === 'physics')
+                    const collisionNode = activeNodes.find(n => n.targetId === obj.id && n.type === 'collision')
+                    
+                    return (
+                      <PhysicsTestObject
+                        key={`${obj.id}-${resetKey}`}
+                        id={obj.id}
+                        type={obj.type}
+                        initialPosition={[obj.x / 100, -obj.y / 100, 0]}
+                        size={[obj.width, obj.height]}
+                        color={obj.color}
+                        isStatic={obj.isStatic}
+                        isSelected={selectedObjectId === obj.id}
+                        physicsConfig={physicsNode?.config}
+                        collisionConfig={collisionNode?.config}
+                        physicsNodeId={physicsNode?.id}
+                        onPositionUpdate={(x, y) => {
+                          setTestObjects(prev => prev.map(o => 
+                            o.id === obj.id ? { ...o, x, y } : o
+                          ))
+                        }}
+                        onSelect={() => setSelectedObjectId(obj.id)}
+                      />
+                    )
+                  })}
+                </Physics>
+
+                {/* Orthographic camera for 2D view */}
+                <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={100} />
+              </Suspense>
+            </Canvas>
+
+            {/* Overlay info */}
             {activeNodes.length === 0 ? (
-              <div className={styles.noSelection}>
+              <div className={styles.canvasOverlay}>
                 <p>Add a node to start testing</p>
               </div>
             ) : (
-              <>
-                {/* Show combined effects */}
-                <div className={styles.previewInfo}>
-                  {getActiveEffects().map((effect, i) => (
-                    <span key={i} className={styles.previewBadge}>{effect}</span>
-                  ))}
-                </div>
-              </>
+              <div className={styles.canvasOverlay} style={{ pointerEvents: 'none' }}>
+                {getActiveEffects().map((effect, i) => (
+                  <span key={i} className={styles.previewBadge}>{effect}</span>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -647,8 +561,51 @@ export function NodeTester() {
               </div>
             </>
           ) : (
-            <div className={styles.noSelection}>
-              <p>Select a node to edit properties</p>
+            <div className={styles.sidePanelContent}>
+              <div className={styles.propGroupTitle}>Objects &amp; Nodes</div>
+              {testObjects.map(obj => {
+                const objIcon = obj.type === 'ball' ? '🔵' : obj.type === 'box' ? '🔴' : '⬛'
+                const objNodes = activeNodes.filter(n => n.targetId === obj.id)
+                return (
+                  <div 
+                    key={obj.id} 
+                    className={`${styles.objectStack} ${selectedObjectId === obj.id ? styles.selectedStack : ''}`}
+                    onClick={() => setSelectedObjectId(obj.id)}
+                  >
+                    <div className={styles.objectStackHeader}>
+                      <span>{objIcon} {obj.id}</span>
+                      {obj.isStatic && <span className={styles.staticTag}>static</span>}
+                    </div>
+                    {objNodes.length > 0 ? (
+                      <div className={styles.objectStackNodes}>
+                        {objNodes.map(node => {
+                          const nodeIcon = 
+                            node.type === 'physics' ? '⚡' : 
+                            node.type === 'collision' ? '▣' : 
+                            node.type === 'rotation' ? '🔄' :
+                            node.type === 'scale' ? '📐' :
+                            node.type === 'opacity' ? '👁' :
+                            node.type === 'lfo' ? '〰' : '•'
+                          return (
+                            <div 
+                              key={node.id} 
+                              className={`${styles.stackNode} ${selectedNodeId === node.id ? styles.selectedStackNode : ''}`}
+                              onClick={(e) => { e.stopPropagation(); setSelectedNodeId(node.id) }}
+                            >
+                              <span>{nodeIcon} {node.config.name || node.type}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className={styles.noNodes}>No nodes attached</div>
+                    )}
+                  </div>
+                )
+              })}
+              <div className={styles.stackHint}>
+                Click an object to select it, then add nodes from the top bar.
+              </div>
             </div>
           )}
         </div>
