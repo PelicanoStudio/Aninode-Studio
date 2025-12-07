@@ -1,0 +1,395 @@
+/* Playground.module.css - DOM-based node testing environment */
+
+.container {
+  width: 100vw;
+  height: 100vh;
+  background: #0a0a0f;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* TOP BAR */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.95) 0%, rgba(15, 15, 25, 0.9) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 100;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.nodeButtons {
+  display: flex;
+  gap: 8px;
+  margin-left: 20px;
+}
+
+.nodeBtn {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nodeBtn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
+  color: #fff;
+}
+
+.playbackControls {
+  margin-left: auto;
+}
+
+.playBtn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+}
+
+.playBtn.playing {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+/* NODE CHIPS */
+.nodesChips {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-wrap: wrap;
+}
+
+.nodeChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nodeChip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.nodeChip.selected {
+  background: rgba(102, 126, 234, 0.25);
+  border-color: rgba(102, 126, 234, 0.5);
+}
+
+.nodeChipIcon {
+  font-size: 14px;
+}
+
+.nodeChipClose {
+  margin-left: 4px;
+  opacity: 0.5;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.nodeChipClose:hover {
+  opacity: 1;
+  color: #ef4444;
+}
+
+/* MAIN LAYOUT */
+.main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* CANVAS AREA */
+.canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0f0f18;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* OBJECTS */
+.object {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.object:hover {
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
+}
+
+.object.selected {
+  box-shadow: 
+    0 0 0 2px rgba(102, 126, 234, 0.8),
+    0 6px 30px rgba(102, 126, 234, 0.3);
+}
+
+.objectLabel {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+/* SIDE PANEL */
+.sidePanel {
+  width: 280px;
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panelHeader {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nodeType {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(102, 126, 234, 0.2);
+  border-radius: 4px;
+  color: #a5b4fc;
+  text-transform: uppercase;
+}
+
+.panelEmpty {
+  padding: 20px;
+  color: #888;
+  font-size: 13px;
+}
+
+/* PROPERTY GROUPS */
+.propGroup {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.propRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.propRow:last-child {
+  margin-bottom: 0;
+}
+
+.propLabel {
+  font-size: 11px;
+  color: #888;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.propSelect {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.propInput {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  width: 60px;
+}
+
+.propValue {
+  font-size: 11px;
+  color: #a5b4fc;
+  min-width: 40px;
+  text-align: right;
+}
+
+.propCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.propCheckbox input {
+  accent-color: #667eea;
+}
+
+/* Range inputs */
+.propRow input[type="range"] {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.propRow input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #667eea;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* OUTPUTS PANEL */
+.outputsPanel {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.outputsPanel h3 {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.outputsCode {
+  margin: 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  font-size: 10px;
+  color: #4ade80;
+  font-family: 'Fira Code', monospace;
+  overflow-x: auto;
+}
+
+/* LFO OUTPUT */
+.lfoOutput {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #888;
+}
+
+.lfoValue {
+  color: #4ade80;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+}
+
+/* OBJECTS LIST */
+.objectsList {
+  margin-top: 20px;
+}
+
+.objectsList h3 {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.objectItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.objectItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.objectItem.selected {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.objectColor {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.objectNodeCount {
+  margin-left: auto;
+  font-size: 10px;
+  color: #666;
+}

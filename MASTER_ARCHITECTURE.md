@@ -449,6 +449,157 @@ The custom node UI is built on the Aninode Design System (`quick_reference/anino
 
 ---
 
+## CONNECTION SYSTEM ARCHITECTURE
+
+### Property Publishing (Node Communication)
+
+> [!IMPORTANT]
+> Nodes don't communicate directly. All data flows through the **central store** (`aninodeStore`). When we say a node "publishes" to another, we mean it writes to the store, and the target reads from the store.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│               NODE PROPERTY EXPOSURE PATTERN                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────────────┐     ┌────────────────┐     ┌────────────────┐          │
+│  │   LFO Node     │     │  Scale Node    │     │  Target Asset  │          │
+│  │                │     │                │     │                │          │
+│  │ outputs:       │────▶│ overrides:     │────▶│ computed:      │          │
+│  │  { value: 1.5 }│     │ { scaleX: 1.5 }│     │ { scale: 1.5 } │          │
+│  │                │     │                │     │                │          │
+│  │ [No preset -   │     │ [Publishes     │     │ [Rendered]     │          │
+│  │  raw output]   │     │  transform     │     │                │          │
+│  │                │     │  properties]   │     │                │          │
+│  └────────────────┘     └────────────────┘     └────────────────┘          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Modifier Hierarchy (Processing Order)
+
+Signal generators (LFO, Noise, Curve) process **BEFORE** modifier nodes because modifiers may consume their outputs.
+
+| Layer       | Node Types        | Behavior                                                  |
+| ----------- | ----------------- | --------------------------------------------------------- |
+| **Layer 0** | Signal Generators | LFO, Noise, Curve → output raw values                     |
+| **Layer 1** | Modifiers         | Scale, Rotation, Opacity → read signals, apply to targets |
+| **Layer 2** | Assets            | Scene objects → receive computed transforms               |
+
+### Connection Workflows
+
+When nodes are wired together, the target node can **select which properties** to map:
+
+#### Workflow A: Modifier → Asset (Direct)
+
+```
+ScaleNode → Asset
+           │
+           ├─ Default: Apply uniform scale to center
+           └─ Custom Mapping Panel:
+                ├─ Override scaleX only
+                ├─ Override scaleY only
+                └─ Override both (uniform/non-uniform)
+```
+
+#### Workflow B: Signal → Modifier (Indirect)
+
+```
+LFONode → ScaleNode
+          │
+          ├─ LFO has no preset (doesn't know what to target)
+          ├─ Reads Scale's published properties
+          └─ Side Panel Options:
+               ├─ Text field: "startScale, endScale"
+               └─ Dropdown: [startScale] [endScale] [duration]
+```
+
+#### Workflow C: Signal → Asset (Future - Direct Override)
+
+```
+LFONode → Asset (bypass modifier layer)
+          │
+          ├─ LFO reads asset's properties
+          └─ Maps directly:
+               ├─ x, y (position)
+               ├─ scaleX, scaleY
+               └─ rotation
+```
+
+### Property Mapping UI
+
+| Mode           | When to Use          | UI                                       |
+| -------------- | -------------------- | ---------------------------------------- |
+| **Text Input** | Quick, power users   | Comma-separated: `scaleX, scaleY`        |
+| **Dropdown**   | Discovery, beginners | Select from published properties         |
+| **Auto-Map**   | Simple 1:1           | LFO.value → target.speed (single output) |
+
+### Multi-Object Control
+
+| Node                 | Purpose                           |
+| -------------------- | --------------------------------- |
+| **ObjectPickerNode** | Select single or multiple targets |
+| **GrouperNode**      | Create reusable target groups     |
+| **CherryPickerNode** | Select from multiple sources      |
+
+When controlling many objects, connect via Picker/Grouper instead of direct wiring:
+
+```
+┌──────────┐     ┌──────────────┐     ┌────────────────┐
+│   LFO    │────▶│  ScaleNode   │────▶│  ObjectPicker  │
+│          │     │              │     │                │
+│          │     │              │     │  targets: [    │
+│          │     │              │     │    obj1,       │
+│          │     │              │     │    obj2,       │
+│          │     │              │     │    obj3        │
+│          │     │              │     │  ]             │
+└──────────┘     └──────────────┘     └────────────────┘
+```
+
+---
+
+## ANIMATION CONTROL MODES
+
+### Speed vs Duration
+
+Transform nodes support two timing modes depending on use case:
+
+| Mode         | Property           | Use Case                    | Example                       |
+| ------------ | ------------------ | --------------------------- | ----------------------------- |
+| **Speed**    | `rotations/sec`    | Ambient, independent motion | "Spin at 0.5 rot/s forever"   |
+| **Duration** | `seconds/rotation` | Choreography, timeline sync | "Complete 1 rotation in 2.5s" |
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Timing Mode: [ Speed ▼ ]                                       │
+│                                                                 │
+│  Speed Mode:                                                    │
+│  ├─ Speed: [1.0] rotations/second                              │
+│  ├─ Direction: [Clockwise ▼]                                   │
+│  └─ Loops infinitely until stopped                             │
+│                                                                 │
+│  Duration Mode:                                                 │
+│  ├─ Duration: [2.5] seconds per rotation                       │
+│  ├─ Iterations: [3] or [Infinite]                              │
+│  └─ Syncs to MasterTimeline if linked                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Each Mode
+
+| Scenario                 | Mode                 | Reason                       |
+| ------------------------ | -------------------- | ---------------------------- |
+| Background spinning logo | Speed                | Continuous, no end point     |
+| Loading spinner          | Speed                | Rate matters, not timing     |
+| Choreographed sequence   | Duration             | Must finish at specific time |
+| Audio-synced animation   | Duration             | Beat-matched with timeline   |
+| LFO controlling rotation | Speed                | Varying rate dynamically     |
+| LFO controlling angle    | Duration→staticAngle | Oscillate between positions  |
+
+> [!TIP]
+> When LFO modulates rotation, use **Duration mode with staticAngle** for smooth oscillation. Using LFO on Speed causes erratic behavior due to continuous derivative changes. Square waves work with Speed mode for instant state changes.
+
+---
+
 ## TIMELINE SYSTEM ARCHITECTURE
 
 ```

@@ -1,0 +1,271 @@
+Path anim. Luces focales y globales afectan obj cargando un obj svg como centro, control de intensidad, dureza de sombra, segun forma del png se crea un borde por el lado contrario a la luz
+Comtrol de escala de sombra x cada obj 
+Z index por obj para animaciones complejas
+
+Punto de referencia, paso por atrás o adelante de la fuente de luz (selector de indexx)
+
+Toggles para abrir clusters
+
+Herramienta esqueleto con puntos de articulación asignables y constrsins. Presets de cadena de puntos y tippsnde movimiento para cuadrupedos, bipedos y volsdores. Joints podría ser un solo elemento svg que herede el nombre de capa de cada articulación (capas separadas en illus exportadas todas juntas) y que sean nombres estandarizados reconocibles por el programa aplocable a los presets
+
+Color sombra: extraer color principal automaticamente, mucho mas facil
+
+Preset de animación pudem ser arcos de movimiento svg, guardarlos en illus o dorevtamente tramsferirlos al programa. Que cada centro de giro se pueda asociar de forma dinámica y automática.
+
+Sugerir buscar parametros de movimientos ya estudiados para generar las curvas de trayectoria y rotación 
+
+Patrones de escala (S) por id de capa
+Clister de trayectos por id de capa en un solo archivo interpretable x el programa
+(Es más, las imagenes tbn se podrían cargar de forma masiva en un solo archivo y ser llamadas segun nombre e id de path, algo como un sprite o directamente un archivo con jerarquía de capas, que a su vez podría entragar info de z-index, el problema de esto es que tendría que ser seleccionable de alguna forma cada img para poder darle el resto de props)
+
+Full screen
+Estados de adelante y atras en pag para que no se salga completo 
+
+Reproducir solo una vez opción
+
+Setear rotación inicial
+Desplegable de efectos
+
+Eventos de ejecución globales y unitarios externos asignables (estilo touchdesigner con cablesitos)
+
+Que los parametros sean afectables según variante dentro de componentes (override de prametro)
+
+Componente anidable: si hay que generar una animación más compleja se pueden generar las partes y luego mover el total con otro componente de la misma naturaleza
+
+Subcomponente de camara (zoom, desplazamiento)
+
+Proposito final: eliminar fricción entre creatividad y tecnicismos herméticos, que no permiten visualizar las ideas en tiempo real
+
+Random path
+Random keyframes (efecto mosca o libelula)
+
+Modificadores (ejemplo animador de pendulo) con animación visible en canvas, se conecta con cable, trae la info para editar directamente parametros que están escuchando a los dif modulos posibles 
+
+Idea de modificadores está bonita para hacer una web que sirva pra animar al estilo touchdesigner, y todas las herramientas de animación que hemos planteado que se puedan publicar para uso en vivo en web
+
+Lineas de tiempo control sonoro en componebte aparte. Todo se conecta aun reloj global que coordina ritmo y tiempos generales
+
+Acciones de animación y lipsyinc por detección de transcientes. Para no recargar la animación en vivo habría que hacer los arichivos con esta info aparte con un programa hecho para esto y liego sea leído como parametros de mov por eñ animador ppal
+
+Modulo gravedad: para animar caídas, rebotes y parábolas. Identifica dirección de los vectores y acelera/desacelera según eso. 
+
+Curvas predeterminadas de rebote, lanzamiento, desplazamientos comunes en gral, escalables y deformables.
+
+Motor de luz a parte con selector de tipo de luz, color, intensidad y estilo (por ejemplo medios tonos, granulados, gradientes, sólidas, etc)
+
+Educación STEAM. Material educativo animado con este motor 
+
+Motor principal se puede simplificar en cuanto a interfaz pero generar otros componentes compatibles, como un sistema modular que se puede clusterizar y conectar otros módulos, igual que touch designer. Por ejemplo motor de iluminación, reloj global. Animador de parámetros específicos (es decir que entregue info de tiempo, velocidad, easing etc): supongamos que en el modulo nuclear se cargan imágenes y patrones, pero en este otro uno puede asignar con un id (en un control en interfaz) a que img va a afectar estos parámetros a asignar. Incluso pueden haber módulos de animadores de variables que al conectarlo cambien dinámicamente dureza de la luz, posición cartesiana de la luz, escala de objetos, etc. todo esto se lograría porque el componente principal tendría una “compuerta” abierta a escuchar a estos modificadores que pueden sobreescrivir sus parámetros por default o los asignados en la interfaz (también animar o modificar los parámetros invisibles que no tienen controles en la interfaz como los easing, springs, etc, con la capacidad de asignar estos a objetos específicos saltando la selección global); todo esto por medio de cables de conexión (como los que usa el slideshare. No se cual es el nombre técnico del cable)
+
+Control de tomas por variantes de composición, linea de tiempo maestra puede controla cambio de tomas en un mismo escenario. Modulo de linea de tiempo. 
+
+Asignador de colores e ids bidireccional
+
+Modulo efectos, hover, sonidos
+
+Componente proncipal puede mandar info a store para comunicar su “presencia” y su info z-index. De está forma si se quieren apilar varios componentes proncipales para correr multoples animaciones en la mista vista, se puede modificar la visualización de su id de color, cortando el stroke en la cantidad de componentes dispuestos (tendría que tener otra config para señalar que es fullframe y asi que no afecte a ptros componentes mas pequeños qie se puedan poner en la escena). Los coñores se ordenarán de izquierda a derecha de z index mas alto a mas bajo. 
+Puede haber un modulo de toggles de override que se comunique con todos los componentes en escena y sirva para controlar la configuración global de preview (ids por nombre, ids de paths, ids de objetos, id color de canales de animación) 
+
+Módulo “delay array” para crear una cadena de números de delay preseteables y asignar a múltiples objetos (para generar animaciones de reacción en cadena) 
+
+Cheerry picker con opción “múltiple” para seleccionar varios objetos de diferentes fuentes a la vez y así generar listas (a las que por ejemplo se pueden suscribir módulos como el delay array)
+
+Trigger de tiempo que indiquen, o sea uno puede hacer una especie de módulo que sea que ya traiga como el selectores para poner la propiedad en un número en el segundo segundo y eso se lo asignamos. Al inicio son como es un módulo de aquí básicamente y así podemos tener tiempo compartido para las diferentes acciones que suceden al mismo tiempo. El tiempo de inicio a esta también se le puede agregar un por ejemplo un DJ para que no te empieza al mismo tiempo, pero sí que tenga como un tiempo de inicio común, y no tener que estar chequeando ese tiempo de inicio manualmente en cada uno lo que lo que queremos animar y también nos sirve como un Trigger para para sincronizar el tiempo con el tiempo de una animación con el tiempo de un sonido
+
+Nodo “visual props” permite agregar todo tipo de efectos, es como un editor de apariencia donde podemos sumar varios efectos desde el mismo bloque y cada uno obviamente asignarle todo tipo de triggers. Además (no se si en el mismo bloque) deberían haber configuradores de máscaras y lógica de capas para generar fusiones e interacciones controladas entre diversas capas. (Por ejemplo si añadimos un modo de fusión indicar con que capa se fusiona el objeto seleccionado etc)
+
+Delay de animación con opción “onece” para que durante el loop de animación solo se ejecute una vez 
+
+Editor de transformación por curvas rectas y poco normales combinadas en modo dibujo (se puede dibujar una línea a lo largo de una línea de tiempo que indica escala y cadencia de transformación). Además de las diferentes funciones estáticas lineales, gaussianas, log, etc básicas 
+
+Presers de usuario de cámaras. Objeto cámara configurarle.
+
+Modo dibujo de ruta svg asignable
+
+Módulo multotrigger delay multiasignable con configuraciones de preset para dignar a una serie de objetos 
+
+Módulo cluster para que el usuario pueda agregar sus cadenas personalizadas y guardarlas.
+
+Módulo editor de audio podría ser más viasual al estilo premiere o daw con archivos recortables directo en la línea de tiempo 
+
+Cadena de paralaje: una serie de objetos se vinculan a un modificador que los concatena asignando una lista de velocidades de desplazamiento (o modificador de velocidad). Esto funcionarios especialmente bien para jerarquizar fondos y generar un efecto de profundidad y estereoscopía. Sería interesante una configuración que asigne una profundidad a cada objeto y con eso calcule la velocidad de desplazamiento.
+
+Generación de mapas de profundidad alfa asignables al motor de luz para que simule como impactaría sobre las partes de un objeto 
+
+Módulo secuenciados de cuadros (animación cuadro a cuadro)
+
+Además del modo dibujo de rutas svg podemos tener un modo de dibujo de cámaras y transición de cámaras se dibuja el cuadro que uno quiere con sus triggers de tiempo correspondiente y los diferentes estados, velocidades de transición y cadencia. 
+
+Modo de captura (grabación) de animación en vivo. Se puede animar en tiempo real un objeto manipulando de una dus propiedades de escala, translación y rotación y esto genera una secuencia automatizada en un tiempo determinado.
+
+Módulo de control de tomas y escenas con inputs (para conectar UIs externas una vez exportado el código) para triggers. Para este propósito (y otros que sean atingentes) podría exportar el programa un .txt readme que indique cantidad y nombres de puerto, y otra metadata que pueda ser relevante (por ejemplo estructura de directorios etc)
+
+Seguidores de movimiento con face y body traking 
+
+Dibujo de componentes react válidos estructura, estilos, layout etc. y semánticamente correctos para exporta (animados, no animados o incluso con animaciones ultra sencillas)
+
+Integrar motor de animación svg que converse de manera fluida y nativa con el motor principal (a diferencia del típico choque de lenguaje pixel / vector q sucede en los programas de edición)
+
+Integración de video 
+
+Módulo de captura de video para optimizar momentos de la animación en bloques “cocinados” en formato de video para momentos sin interacción 
+
+Grilla de perspectiva: a un paisaje 2D le asignamos un cuadro que define la perspectiva de la toma y actúa como modificador dinámico inteligente, los objetos que estén suscritos a ésta cambiarán su escala según “profundidad”, se podrían deformar, cambiar su velocidad relativa de desplazamiento (paralaje), profundidad de campo (efecto de desenfoque) etc. 
+Por su puesto que las propiedades de esta malla se pueden personalizar, como distancia de simulación de profundidad, altura, inclinación etc.
+La escala original la define el objeto y el modificador genera una multiplicación inteligente 
+
+Atractor chain: una cadena de objetos o puntos (o centroide de área) se asignan en orden para actuar como imanes en un sistema de partículas. El módulo basal es un módulo tractor, a este se le puede asignar un punto o múltiples y según el número de id q se le de al punto es el orden en el que viajarán las partículas. (Lo cual significa q le podríamos asignar el puntero como tractor tbn o cualquier centro de objeto. 
+
+Colisionador: módulo que asigna propiedades de colisión a los objetos para interactuar con las partículas, diferentes unidades de repulsión/atracción basado en bordes de imagen o bordes de svg.
+Así mismo poder guiar objetos en un trayecto (como un personaje que camina)
+
+Ruta svg para partículas.
+
+Partículas como centro de objeto para hacer estética personalizada de partículas (como burbujas de Luis)
+
+Link de preview para trabajo en equipo (habría que resolver donde se almacenan los archivos por su arquitectura de almacenamiento local). Un plan de pago podría almacenar los assets del usuario en un servidor. Capa de comentarios Línea de tiempo global, para equipo y organización del propio animador. 
+
+“Transitor”: un módulo que permite generar transiciones impecables y hermosas entre formas hermanas (o incluso no hermanas) basadas tanto en svg como en pixel (así como esos animadores antiguos donde uno ponía varias fotos de rostros y el programa animaba estados intermedios donde mezclaba las caras). Eso mismo pero para  svg, con keyframes. Y para pixeles también. Podría convertirse en algo muy increíble si no es demasiado difícil de desarrollar. (Concepto: cross morphing)
+Sería muy bonito como concepto usar el morphing de pixeles para hacer transiciones de una caminata de un personaje por ejemplo. 
+Ideal sería que tuviera una configuración para embeber una interpolación en las animaciones cuadro a cuadro.
+Sería genial también tener una herramienta para dibujar mallas de cuerpo (simplificada a puntos que adaptan una malla), también incorporar herramientas opensource de reconocimiento de postura corporal y facial. PENDIENTE: suavizado (máscara blur? Constrain tamaño máximo de arista relativo?)
+
+Idea para animar un personaje: podrían haber personajes gamificados que a parte de riggeados tengan secciones en diferentes capas animadas cuadro a cuadro que se triggeen con diferentes acciones: por ejemplo un personaje salta y su pelo se mueve con física realista, pero su pelo es una animación en realidad precocinada cuadro a cuadro que simplemente está coordinada con el salto (el trigger)
+
+AniCapture: hace una captura cuadro a cuadro y luego la exporta como secuencia. La gracias es que podemos diseñar toda la animación de un objeto (x ejemplo un personaje) y después el nodo pega sus capas y las convierte en un sprite con instrucciones para secuencia en interacción 
+
+Nodos branch, stream, tres para info
+
+Mini preview de obj seleccionados en estado de animación correspondiente dentro de los nodos (obviamente no todos quizás solo picker y duplicador). Nodo específico preview
+
+Identificación de bordes y svg, necesita dirección de normales para mapear colisiones, partículas, objetos, interacciones y poblar en general. Faltan herramientas de mapeo de vectores y normales
+
+Point, point list y cloud. Faltan herramientas para setear puntos con sus coordenadas y así sirva para mapear movimientos, direcciones, etc
+
+Herramientas de rotación 
+
+Pick and place: permite seleccionar objetos directamente y ubicarlo al ojo en la escena y guardar su estado como estado original (lo mismo con otras configuraciones) 
+
+Relocate: recibe listas, o una sola coordenada para asignar nueva posición de objeto. 
+
+Pedir a Gemini: todos los comandos y ui en gral traducirla en inglés, alemán, francés, japonés (preguntar por otros idiomas) el motor carga el lenguaje según localidad pero además tiene una opción para recargar la página en otro idioma.
+
+Vibe Live Codina: generar nombres estandarizados de comandos y formas de señalar al programa qué cosas conectar con sus nombres de comandos específicos (ver cómo funcionan otros referentes). Incluso podrían haber módulos de generación sonora. 
+
+Módulos para conectar máquinas dmx y osc ports para control inalámbrico. 
+
+Id de proyecto para conectar varios editores a la vez para experiencias en vivo.
+
+Modulo de diferentes tipos de curvas con referencia visual. Editor de curvas cartesianas 
+
+Estimador de peso de exportación con tabla de detalles (assets, librerías, peso de interactividad, motor en general). Manual con ejemplos para optimización y peso (siempre el diseñador se encuentra con el muro técnico de la optimización, aquí queremos combatir eso) 
+
+Como loopear un suelo por ejemplo de una pantalla para q el personaje se mantenga pegado siempre al suelo?
+
+Nodo fetch 
+
+Existe un concepto de render dinámico que genere diferente cantidad de fps según el movimiento y tipo de movimiento que se detecte en el video? 
+
+Gestión de archivos se puede hacer conectando a las principales proveedores de almacenamiento en la nube como google drive, drpbox, etc. el programa crearía una carpeta primaria llamada Aninode Studio y adentro se guardarían las carpetas de proyectos. En el futuro obviamente sería ideal ofrecer almacenamiento de proyectos en servidores propios y ya después de cierto rango de peso cobrar por la gestión del almacenamiento. En cualquier caso, para que todo esto funcione de manera fluida, los recursos en cada sesión tendrían que ser cacheables para almacenarse temporalmente en el disco duro y que no viva todo en ram ya que si no se vuelve pesadísimo (averiguar cómo y factibilidad técnica con claude). 
+
+Los proyectos se pueden hacer colaborativos compartiendo el link de la carpeta de drive o dropbox. Evaluar necesidad de crear cuentas de usuario y como lograrlo, esto principalmente para colab. Averiguar en general cómo funciona manejo de base de datos de usuarios. Averiguar factibilidad y precios con aws.
+
+Posibilodad de compartir vista previa en modo comentarista con todos los controles ocultos (tendría que ser un archivo que se carga en drive con una instrucción específica que esconda los controles, y al guardarla en ese modo el programa te entregue el link inmediato para compartir avances) 
+Sistema de línea de tiempo + postit sobre ítems para comentarios (diseñar ux de manejo de comentarios enfocado en avance efectivo y eficiente)
+Los postit pueden apuntar a elementos específicos y tener un tiempo de duración configurable para que aparezca sobre la escena, además de un gestor de estado de avance (tipo trello pero todo integrado), así como una botonera general para activar y desactivar todos los comentarios y filtrar por prioridad.
+
+Scene exporter (hay que cambiar el nombre): 
+Podría tener las funciones básicas actuales (que se puedan esconder) per que se vea muy similar a un sidepanel de capas de programas de edición. Los objetos igual se seleccionan por pickers ya que es difícil estar seleccionando capa por capa en escenas complejas, y además esto ayuda a manterner una jerarquía visual que nos permite entender y editar el proceso (historial). Esto es extremadamente potente. Podría tener una opción súper interesante donde al seleccionar la capa o varias capas apretemos click derecho y seleccionamos “branch, stream o pick” y genere un picker automáticamente conectado al nodo scene con los el o los elementos preagrupados listos para animar. 
+
+Sería muy intuitivo que los objetos se puedan seleccionar y editar su escala igual que en un programa de edición gráfica, pero hay que idear una manera en que esto mantenga un historial correcto dentro de la ramificación ya que el corazón de Aninode reside en el proceso no destructivo. Podría ser que el programa entregue una advertencia de que se sobreescribirá el preset original, también puede ser que tome el último punto de escritura y escriba los nodos correspondientes a la sobrescritura que se realice manualmente, también (para mantener la lógica de historia y que el usuario puede tener una relación estrecha con ella sin perderse) puede haber un nodo “hand override” que permita la selección manual en el punto deseado. ¿Cómo se integra esto en relación a las modificaciones dentro de la línea temporal que representan los nodos? ¿Donde pueden y no inyectarse estas modificaciones manuales? ¿Solo al principio de la cadena o en otros puntos también? 
+Esta función igual guarda relación con la idea de poder generar estados de un objeto (escala, translación, rotación) por edición manual que se registra en el timeline (nodo dedicado? O el timeline carga esta función?) 
+
+Para objetos rigueables (u obj 2.5d en general): integrar módulo nano banana que saque una serie de ángulos en diferentes puntos de rotación del personaje. Luego con alguna técnica maestra podemos (como fundido+morfing+contorno svg morfing+detección de color principal en uniones y relleno) hacer transiciones entre estos estados, donde además el objeto estará rigeado. 
+
+Esqueleto: aprendizaje automático de movimiento conncontrain de respetar límites de bordes de imagen de personaje caminando. Una vez entrenado incorporar como preset grupo svg con vértices editables para adaptar sobre la imagen que queremos rigear 
+
+Gestión de proxys y guardado en diferentes calidades según dispositivo de salida. El programa trabaja solo con la resolución necesaria perseptible y va regulando automáticamente la calidad según proximidad (habría que jerarquizar según fondo o paisaje, locación, etc. ya que un fondo por ejemplo se podría detectar como un objeto que usa toda la pantalla pero es estático y podría estar configurado con más resolución de lo necesario) 
+
+En más capas podríamos añadir encuadres con etiquetas de cámara 1, o encuadre 1, etc, que sean reconocidos como cámara por Aninode (tiene que ser integrante para ser compatible en dif lenguajes, soportar tildes y sin tilde, mayúscula y minúscula etc) 
+
+Para live mapping: cómo gestionamos para poder poner un view port en pantalla completa? Cómo gestionamos si tenemos una salida múltiple y queremos conectar varios proyectores? Cómo gestionamos la
+Conexión de harware como cabezas robot y láser ? Es posible la gestión de multiples view ports desde ambiente web?
+
+Volver a intentar plugin pasándole todos los archivos de código de ejemplo aplanados en txt. También averiguar si affinity moderno ahora soporta el nuevo tipo de plugin de Photoshop.
+
+Generador de assets con IA integrado (usuario tendría que usar su propia cuenta mientras el sistema esté en pañales). Extención de escenario hacia afuera para ampliar tomas. Generados de escenas completas, segmentar y rellenar objetos ocluidos.
+
+Plugin o script Photoshop debería manejar toda la lógica de interpretar centro de área, coordenadas en general y origen web, interpretar y etiquetar filtros, efectos y opacidad, agrupar. De esta manera se entrega un JSON lo más pulido posible y que el programa no tenga que hacer cálculos repetitivos si no que acceder directo a información.
+
+Averiguar tipos de herramientas generativas y parametricas “must have” para flexibilidad en la creación visual. (Tutorías y repositorios de touchdesigner, resolume, grasshopper incluso!). Por ejemplo metaballs, interacción entre máscaras, bordes, svgs. Matrices de puntos, mallas geométricas triangulares, grillas, líneas básicas, figuras y volúmenes primitivos, ruido, mapas de degradado, colores en general (¿cómo manejamos colores correctamente? Qué pasa con los colores web vs otros tipos?) averiguar más sobre millumin, que si bien no es nodal si nos puede dar pistas interesantes sobre live mapping y mapping en general.
+
+Gestor de librerías ultra eficiente: mediante importaciones de módulos explícitamente necesarios. El motor total usa todas las importaciones necesarias, pero en la traducción minificada de la exportación escribe de manera híper pulida los llamados a módulos de forma de mantener exportaciones ultra livianas.
+
+Buscador con filtros: para poder modificar flujos de trabajo tenemos una barra buscadora con acceso a todos los modos e ids, y nos permite hacer filtros “and” para poder encontrar modificaciones en las ramas y enfocarlas. Por ejemplo: “ id = pájaro - rotate “, al buscar nos enfoca el objeto en centro de pantalla.
+
+Nodo morpher se puede usar para transición cebolla en animaciones cuadro a cuadro (nodo cuadro a cuadro).
+
+Modulo offset, delay y/o feedback para lograr efectos de repetición (cola) y retroalimentación del objeto animado (tipo touchdesigner)
+
+nodo weaver teje partículas u objetos con transiciones visuales.
+
+Catalogo de nodos "prefabs" para vj live eficiente.
+
+Módulos de física-gravedad podrían ayudar a implementar lógicas de aceleración-desaceleración sin tener que aplicar manualmente lógica de easings y springs, si no que lo automatiza sobre el objeto animado. 
+
+"Inteligencia" en lectura de números: para que no se genere errores y se mantenga intuitivo (usuario puede seleccionar interger, foal y rangfos, pero tiene que haber presets y reconocimiento automático (en caso de inputs por caja de texto) de tipo de número para que no se generen errores.
+
+Chrome cuenta con la opción de instalar web apps desde la barra superior de enlaces, esto sería ideal implementar para nuestro motor. 
+
+En jerarquía de capas de photo shop podemos poner encuadres con nombre por ejemplo "encuadre 1" o cámara 1, etc, y el script exportador categorizará estas capas como cámaras, que luego en el motor se leerán automáticamente para poder configurarlas dentro de la linea de tiempo. 
+
+Los diferentes scene animator (anidables o no) despliegan sus capas en un panel lateral, desde un solo conector del panel podemos elegir y agrupar (o solo seleccionar individuos) sus objetos y desde hay cominezan las ramificaciones. Cuando seleccionamos un objeto de esa rama se destaca toda la cadena asociada para identificar el flujo.
+
+el time line principal, con scrubber, vive en la parte inferior de la interfaz, pero es ocultable. Los otros timelines se pueden subsicribir a él, así como pueden vivir otras animaciones asíncronas infinitas (o no) como interacciones, etc. 
+
+side panel de configuraciones de nodos se despliega a la derecha al clicar sobre ellos.
+
+La identificación de capas y categorías en el exportador de Photoshop DEBE soportar multiples lenguajes. 
+
+TODOS LOS PARAMETROS Y UI EN GENERAL ES MULTILENGUA, se puede seleccionar manualmente el lenguaje en configuraciones, así como también tenemos selección automática por locale. Habrá que reescribir todo el motor con strings paramétricas que se suscriben a los paquetes de idioma. 
+
+Lógica bidereccional timeline nodos: al configurar el trigger temporal para un elemento este se despliega en la línea de tiempo. Si seleccionamos dicho elemento tbn se destaca el clip correspondiente en la línea y viceversa. Los tiempos de transformación tienen que mantener a raya a la siguiente transformación limitando tiempos de inicio y fin, pero con la posibilidad de superponer pero con advertencia previa de fallo.
+
+Nodo clone: clona a cualquier nodo que se le conecte y despliega sus propiedades  en el side panel con la posibilidad de editarlas como un objeto independiente. Modo multiclon nos permite copiarlo dentro de un solo nodo cuántas veces queramos. (Podemos elegir la opción de colapsar sus propiedades si son muchos y las vamos a editar a través de listas.
+
+Nodo value list: permite crear y entregar una lista de números, para por ejemplo mapear las diferentes fases que le queremos entregar a un multiclon de LFO. Tiene un puerto de entrada para leer número de ítems, por lo que se puede conectar en loop directo desde el el nodo que le pide la información para leer la cantidad requerida. HAY QUE EVALUAR BIEN SI ES LA MEJOR IDEA EXTRAER PROPIEDADES CON PIKERS O SERÁ MEJOR SIMPLEMENTE PONER MÁS PUERTOS DE ENTRADA Y SALIDA. Quizás poner la posibilidad de desplegar puertos a pedido, o también añadir lógica “telepática” (por ejemplo el valor que queremos enviar, click derecho en el campo > send, y el que queremos recibir click derecho en el campo > recibe ‘nombre de la propiedad’. Podemos desplegar la punta de la flecha punteada y semi transparente que siga el cursor hasta que se haga la acción de recibir. La flecha va a parpadear con eassing mientras espera la acción de recibir, cuando se setea, la fecha quedará fija.
+Regla general: solo los valores vivos despliegan movimiento en sus cables.
+
+Tenemos que pensar en la lógica de almacenamiento, versionado y biblioteca de usuario. Dashboard de proyectos etc. por ejemplo crear copia de escena o proyecto, que el usuario decida si quiere duplicar completo el directorio o simplemente quiere crear un nuevo proyecto que refiera a los mismos assets para ahorrar espacio. 
+
+Preguntar a IA por peso de historial infinito. Archivo JSON maneja historial infinito, se puede sobrescribir para borrarlo. Otro archivo JSON maneja valores de guardado de proyecto y otro JSON el autguardado. Al guardar manualmente éste último se resetea e inyecta sus valores al JSON primario. (Que tan complicado es crear una extensión personalizada? Será necesario? 
+
+Preguntar a IA por minificacion en servidores para evitar plagio.  
+
+Nodos de control visual como máscaras con degradado, granulado y todo tipo de efectos visuales. Control de máscara degradé dinámico con puntos de control maleable a valor vivos. (Re mapeo UV, no xy ya que la máscara se puede mover y escalar  en el plano xy rompiendo el control absoluto de la máscara) 
+
+Nodos de mapeo numérico. Consultar grasshopper. Aquí tenemos un montón de nodos y lógica ya desarrollada que podemos pedir prestada para el motor.
+
+Revisitar ideas de inyección de código en nodos consola. Revisitar idea de lenguaje propio que se traduzca a múltiples llamados a librerías y estructura nodal “AniType” nos permite escribir con meta lenguaje el flujo nodal llamando a sus nombres y propiedades. Durante la escritura se despliegan sugerencias con catálogo de nodos y propiedades, compresión inteligente de cadena de palabras para sugerencias precisas (esto más adelante, suena muy complejo). Además de poder crear flujos completos solo en consola, podría funcionar como cluster que con inputs y outputs que se pueda guardar y reutilizar dentro del canvas.
+
+Doble click (shift+click para accesibilidad) sobre puerto para desplegar lista de nodos que queramos conectar. Shit+tab para mostrar todos los nodos y seleccionar. Ese menú necesita una barra de búsqueda y organización por tipo. Con shit+click podemos seleccionar más de uno y shift+click sobre el mismo nodo suma más del mismo (estas cosas necesitan feedback visual como contadores muy evidentes y checks)
+
+Ctrl+Alt+Click/Drag sobre puerto de salida para crear clon (que emerja con una animación bonita de escalado pequeño y fade in. Para los assets el clon podría ser un nodo duplicador. ¿debería tener el cable una característica especial para este tipo de nodo?
+
+Clipping plane: líneas de recorte asignables a objetos sin la necesidad de crear máscaras cerradas. El programa entiende sus normales (flippeables) y recorta en esa zona los objetos que pasen por ahí, esto nos permite crear ocluciones en escenas sin necesidad de separar todo por capas 
+
+Ui: los nodos deberían abrir el side panel automático solo cuando se agreguen recién o se les haga doble click, porque si no se vuelve muy ingrata la interacción. En touch hay que corrige interactividad del canvas y agregar botones para poder hacer acciones que no se pueden sin un teclado y mouse (como focus). Además hay que arreglar tema de cable telepático, no funciona porque en iPhone ya existe la interacción de mantener apretado por defecto y no sé si se puede sobrescribir. 
+Además no es posible mover los nodos de forma fluida, quizás doble click + drag logre el truco
+
+(SVG) Muy importante: herramienta de creación de primitivos vectoriales como cuadrados, círculos, espirales, ondas, patrones, estrellas etc. Herramientas avanzadas de para creación de formas, intersección, corte, uniones, etc. intersecciones inteligentes tipo illustrator. Manejo de grosores dinámicos de trazo. Pinceles y estilos avanzados para trazos. Mezclar estilo de dibujo de rhino con illustrator (rhino tiene una forma muy intuitiva de manejar cortes y composición de formas, como la erramoenta trim y split con curvas auxiliares). Manejo de color de relleno, malla de degradado, contornos degradados y súper estilizables con filtros (grano, posterizado, etc). TODO ES PSRAMETRICO POR LO QUE SE PUEDE EXTRAER LA PROPIEDSD Y LLEVAR AL SISTEMA NODAL Y TIMELINE.
+
+Lo mismo anterior pero para primitivos 3D.
+
+Exportación de video con fondo transparente para animaciones livianas sin 3D real (3D baked): con un nodo identificamos el canal alfa de un objeto animado restando automáticamente el fondo, del alfa creamos una máscara dinámica, se exportan dos videos superpuestos, una máscara y un video y un motor extremadamente reducido se encarga de interpretar la máscara creando un video que simula un objeto 3D libre que se adapta al viewport de la web pero en realidad es un video inteligente. El motor, como en cualquier otra exportación puede traer todo tipo de triggers preprpgramsdos para controlar la animación que en realidad es un control de tiempo del video incluso con essings incorporados. 
+
+Biblioteca de prefabs de visualización de datos personalizables. 
+
+Panel de info tipo grasshopper para saber formato de los datos que comunica un nodo y poder usarlos de forma correcta y eficiente. 
+
+No perder de vista la jerarquía de tres niveles donde los modificadores comunican la modificación por defecto sin necesidad de intermediarios pero que a la vez si los valores se especifican automáticamente se pasan estos valores en vez del preset.
+
