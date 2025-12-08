@@ -32,7 +32,6 @@ export type NodeDefinition = {
   id: string
   type: string
   name: string
-  position: { x: number; y: number }
   // Level 1: Static values set by user in UI
   baseProps: Record<string, any>
   
@@ -124,8 +123,6 @@ export interface EngineStore {
   }
 }
 
-// Exporting as 'engineStore' to align with new architecture. 
-// Legacy 'aninodeStore' users will need update.
 export const engineStore = proxy<EngineStore>({
   project: {
     nodes: {},
@@ -150,33 +147,3 @@ export const engineStore = proxy<EngineStore>({
     }
   },
 })
-
-export const storeActions = {
-  addNode: (node: NodeDefinition) => {
-    engineStore.project.nodes[node.id] = node
-  },
-  removeNode: (nodeId: string) => {
-    delete engineStore.project.nodes[nodeId]
-    delete engineStore.runtime.overrides[nodeId]
-    delete engineStore.runtime.nodeOutputs[nodeId]
-  },
-  updateNodeProps: (nodeId: string, props: Record<string, any>) => {
-    const node = engineStore.project.nodes[nodeId]
-    if (node) {
-      Object.assign(node.baseProps, props)
-    }
-  },
-  updateNodePosition: (nodeId: string, x: number, y: number) => {
-     const node = engineStore.project.nodes[nodeId]
-     if (node) {
-       node.position = { x, y }
-     }
-  },
-  setPlaying: (isPlaying: boolean) => {
-    engineStore.runtime.timeline.isPlaying = isPlaying
-  }
-}
-
-// Legacy Compatibility (Deprecated)
-// Allows unmigrated files to compile (runtime may vary)
-export const aninodeStore = engineStore as unknown as any

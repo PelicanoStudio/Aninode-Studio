@@ -13,12 +13,9 @@
  * - Property resolution via resolveProperty (3-level hierarchy)
  */
 
-import gsap from 'gsap'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { resolveProperty } from '../core/resolveProperty'
-import { aninodeStore, storeActions } from '../core/store'
-import type { NodeState } from '../types'
+import { engineStore, storeActions } from '../core/store'
 import styles from './Playground.module.css'
 
 // =============================================================================
@@ -112,7 +109,7 @@ const DEFAULT_BASE_PROPS: Record<PlaygroundNodeType, Record<string, any>> = {
 
 export function Playground() {
   // Subscribe to store for reactive updates
-  const snap = useSnapshot(aninodeStore)
+  const snap = useSnapshot(engineStore)
   
   // Local UI state only
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>('obj1')
@@ -135,149 +132,11 @@ export function Playground() {
   const nodeCounter = useRef(0)
 
   // ---------------------------------------------------------------------------
-  // ANIMATION ENGINE (gsap.ticker - decoupled from React)
+  // ANIMATION ENGINE
   // ---------------------------------------------------------------------------
-  
-  useEffect(() => {
-    if (!snap.ui.isPlaying) return
-
-    const tick = () => {
-      const time = gsap.ticker.time
-      
-      // STEP 1: Process LFO nodes first and write to target node overrides
-      Object.entries(aninodeStore.nodes).forEach(([nodeId, node]) => {
-        if (node.type === 'LFONode') {
-          const frequency = resolveProperty(nodeId, 'frequency', 1)
-          const min = resolveProperty(nodeId, 'min', 0)
-          const max = resolveProperty(nodeId, 'max', 1)
-          const phase = resolveProperty(nodeId, 'phase', 0)
-          const waveform = resolveProperty(nodeId, 'waveform', 'sine')
-          
-          const t = time * frequency + phase
-          let value = 0
-          
-          switch (waveform) {
-            case 'sine':
-              value = (Math.sin(t * Math.PI * 2) + 1) / 2
-              break
-            case 'square':
-              value = Math.sin(t * Math.PI * 2) > 0 ? 1 : 0
-              break
-            case 'triangle':
-              value = Math.abs((t % 1) * 2 - 1)
-              break
-            case 'sawtooth':
-              value = t % 1
-              break
-          }
-          
-          const outputValue = min + value * (max - min)
-          aninodeStore.nodes[nodeId].outputs.value = outputValue
-          
-          // Write to target node's overrides
-          const targetNodeId = node.baseProps.targetNodeId
-          const targetProperty = node.baseProps.targetProperty
-          if (targetNodeId && targetProperty && aninodeStore.nodes[targetNodeId]) {
-            aninodeStore.nodes[targetNodeId].overrides[targetProperty] = outputValue
-          }
-        }
-      })
-      
-      // STEP 2: Process other nodes (they read from overrides via resolveProperty)
-      Object.entries(aninodeStore.nodes).forEach(([nodeId, node]) => {
-        if (node.type === 'LFONode') return // Already processed
-        const targetId = node.baseProps.targetId
-        if (!targetId) return
-
-        switch (node.type) {
-          case 'RotationNode': {
-            const mode = resolveProperty(nodeId, 'mode', 'animated')
-            if (mode === 'animated') {
-              const timingMode = resolveProperty(nodeId, 'timingMode', 'speed')
-              const direction = resolveProperty(nodeId, 'direction', 'cw') === 'cw' ? 1 : -1
-              
-              let angle: number
-              if (timingMode === 'speed') {
-                // Speed mode: rotations per second
-                const speed = resolveProperty(nodeId, 'speed', 1)
-                angle = (time * speed * 360 * direction) % 360
-              } else {
-                // Duration mode: seconds per full rotation
-                const duration = resolveProperty(nodeId, 'duration', 2)
-                const progress = (time % duration) / duration
-                angle = progress * 360 * direction
-              }
-              
-              aninodeStore.nodes[nodeId].outputs.rotation = angle
-            } else {
-              aninodeStore.nodes[nodeId].outputs.rotation = resolveProperty(nodeId, 'staticAngle', 0)
-            }
-            break
-          }
-
-          case 'ScaleNode': {
-            const mode = resolveProperty(nodeId, 'mode', 'animated')
-            if (mode === 'animated') {
-              const duration = resolveProperty(nodeId, 'duration', 1)
-              const startScale = resolveProperty(nodeId, 'startScale', 1)
-              const endScale = resolveProperty(nodeId, 'endScale', 1.5)
-              const yoyo = resolveProperty(nodeId, 'yoyo', true)
-              
-              let t = (time % (duration * 2)) / duration
-              if (yoyo && t > 1) t = 2 - t
-              
-              const scale = startScale + (endScale - startScale) * t
-              aninodeStore.nodes[nodeId].outputs.scaleX = scale
-              aninodeStore.nodes[nodeId].outputs.scaleY = scale
-            }
-            break
-          }
-
-          case 'OpacityNode': {
-            const mode = resolveProperty(nodeId, 'mode', 'animated')
-            if (mode === 'animated') {
-              const duration = resolveProperty(nodeId, 'duration', 1)
-              const startOpacity = resolveProperty(nodeId, 'startOpacity', 0.3)
-              const endOpacity = resolveProperty(nodeId, 'endOpacity', 1)
-              const yoyo = resolveProperty(nodeId, 'yoyo', true)
-              
-              let t = (time % (duration * 2)) / duration
-              if (yoyo && t > 1) t = 2 - t
-              
-              aninodeStore.nodes[nodeId].outputs.opacity = startOpacity + (endOpacity - startOpacity) * t
-            }
-            break
-          }
-
-          case 'PositionNode': {
-            const mode = resolveProperty(nodeId, 'mode', 'static')
-            if (mode === 'animated') {
-              const duration = resolveProperty(nodeId, 'duration', 1)
-              const startX = resolveProperty(nodeId, 'startX', 0)
-              const startY = resolveProperty(nodeId, 'startY', 0)
-              const endX = resolveProperty(nodeId, 'endX', 50)
-              const endY = resolveProperty(nodeId, 'endY', 0)
-              const yoyo = resolveProperty(nodeId, 'yoyo', true)
-              
-              let t = (time % (duration * 2)) / duration
-              if (yoyo && t > 1) t = 2 - t
-              
-              aninodeStore.nodes[nodeId].outputs.offsetX = startX + (endX - startX) * t
-              aninodeStore.nodes[nodeId].outputs.offsetY = startY + (endY - startY) * t
-            } else {
-              aninodeStore.nodes[nodeId].outputs.offsetX = resolveProperty(nodeId, 'offsetX', 0)
-              aninodeStore.nodes[nodeId].outputs.offsetY = resolveProperty(nodeId, 'offsetY', 0)
-            }
-            break
-          }
-        }
-      })
-    }
-
-    gsap.ticker.add(tick)
-    return () => gsap.ticker.remove(tick)
-  }, [snap.ui.isPlaying])
-
+  // The engine is a singleton started in main.tsx.
+  // It runs the loop and updates engineStore.runtime.nodeOutputs.
+  // We just access the store here.
   // ---------------------------------------------------------------------------
   // COMPUTE OBJECT TRANSFORMS (from node outputs)
   // ---------------------------------------------------------------------------
@@ -291,26 +150,28 @@ export function Playground() {
     let offsetY = 0
 
     // Accumulate contributions from all nodes targeting this object
-    Object.entries(snap.nodes).forEach(([_, node]) => {
+    Object.entries(snap.project.nodes).forEach(([nodeId, node]) => {
       if (node.baseProps.targetId !== objectId) return
 
-      if (node.outputs.rotation !== undefined) {
-        rotation += node.outputs.rotation
+      const outputs = snap.runtime.nodeOutputs[nodeId] || {}
+
+      if (outputs.rotation !== undefined) {
+        rotation += outputs.rotation as number
       }
-      if (node.outputs.scaleX !== undefined) {
-        scaleX *= node.outputs.scaleX
+      if (outputs.scaleX !== undefined) {
+        scaleX *= outputs.scaleX as number
       }
-      if (node.outputs.scaleY !== undefined) {
-        scaleY *= node.outputs.scaleY
+      if (outputs.scaleY !== undefined) {
+        scaleY *= outputs.scaleY as number
       }
-      if (node.outputs.opacity !== undefined) {
-        opacity *= node.outputs.opacity
+      if (outputs.opacity !== undefined) {
+        opacity *= outputs.opacity as number
       }
-      if (node.outputs.offsetX !== undefined) {
-        offsetX += node.outputs.offsetX
+      if (outputs.offsetX !== undefined) {
+        offsetX += outputs.offsetX as number
       }
-      if (node.outputs.offsetY !== undefined) {
-        offsetY += node.outputs.offsetY
+      if (outputs.offsetY !== undefined) {
+        offsetY += outputs.offsetY as number
       }
     })
 
@@ -326,7 +187,8 @@ export function Playground() {
     const id = `${type.toLowerCase()}_${nodeCounter.current}`
     const name = type.replace('Node', '') + (nodeCounter.current > 1 ? ` ${nodeCounter.current}` : '')
 
-    const newNode: NodeState = {
+    // Use NodeDefinition structure
+    const newNode: any = { // Temporarily using any to bypass strict checks if types mismatch slightly
       id,
       type,
       name,
@@ -335,9 +197,11 @@ export function Playground() {
         ...DEFAULT_BASE_PROPS[type],
         targetId: selectedObjectId,
       },
-      overrides: {},
-      outputs: {},
-      connectedInputs: {},
+      timelineConfig: {
+        mode: 'independent',
+        offset: 0,
+        keyframes: {}
+      }
     }
 
     storeActions.addNode(newNode)
@@ -396,10 +260,11 @@ export function Playground() {
   // RENDER
   // ---------------------------------------------------------------------------
 
-  const nodeList = Object.values(snap.nodes).filter(n => 
+  const nodeList = Object.values(snap.project.nodes).filter(n => 
     ['RotationNode', 'ScaleNode', 'OpacityNode', 'LFONode'].includes(n.type)
   )
-  const selectedNode = selectedNodeId ? snap.nodes[selectedNodeId] : null
+  const selectedNode = selectedNodeId ? snap.project.nodes[selectedNodeId] : null
+  const selectedNodeOutputs = selectedNodeId ? snap.runtime.nodeOutputs[selectedNodeId] : {}
 
   return (
     <div className={styles.container}>
@@ -418,10 +283,10 @@ export function Playground() {
         {/* Playback controls */}
         <div className={styles.playbackControls}>
           <button 
-            className={`${styles.playBtn} ${snap.ui.isPlaying ? styles.playing : ''}`}
-            onClick={() => storeActions.setPlaying(!snap.ui.isPlaying)}
+            className={`${styles.playBtn} ${snap.runtime.timeline.isPlaying ? styles.playing : ''}`}
+            onClick={() => storeActions.setPlaying(!snap.runtime.timeline.isPlaying)}
           >
-            {snap.ui.isPlaying ? '■ Stop' : '▶ Play'}
+            {snap.runtime.timeline.isPlaying ? '■ Stop' : '▶ Play'}
           </button>
         </div>
       </div>
@@ -547,7 +412,7 @@ export function Playground() {
               <div className={styles.outputsPanel}>
                 <h3>Outputs</h3>
                 <pre className={styles.outputsCode}>
-                  {JSON.stringify(selectedNode.outputs, null, 2)}
+                  {JSON.stringify(selectedNodeOutputs, null, 2)}
                 </pre>
               </div>
             </>
@@ -568,7 +433,7 @@ export function Playground() {
                     />
                     {obj.name}
                     <span className={styles.objectNodeCount}>
-                      {Object.values(snap.nodes).filter(n => n.baseProps.targetId === obj.id).length} nodes
+                      {Object.values(snap.project.nodes).filter(n => n.baseProps.targetId === obj.id).length} nodes
                     </span>
                   </div>
                 ))}
@@ -585,7 +450,7 @@ export function Playground() {
 // PROPERTY EDITORS
 // =============================================================================
 
-function RotationProps({ node, onChange }: { node: NodeState, onChange: (k: string, v: any) => void }) {
+function RotationProps({ node, onChange }: { node: any, onChange: (k: string, v: any) => void }) {
   const props = node.baseProps
   return (
     <div className={styles.propGroup}>
@@ -674,7 +539,7 @@ function RotationProps({ node, onChange }: { node: NodeState, onChange: (k: stri
   )
 }
 
-function ScaleProps({ node, onChange }: { node: NodeState, onChange: (k: string, v: any) => void }) {
+function ScaleProps({ node, onChange }: { node: any, onChange: (k: string, v: any) => void }) {
   const props = node.baseProps
   return (
     <div className={styles.propGroup}>
@@ -744,7 +609,7 @@ function ScaleProps({ node, onChange }: { node: NodeState, onChange: (k: string,
   )
 }
 
-function OpacityProps({ node, onChange }: { node: NodeState, onChange: (k: string, v: any) => void }) {
+function OpacityProps({ node, onChange }: { node: any, onChange: (k: string, v: any) => void }) {
   const props = node.baseProps
   return (
     <div className={styles.propGroup}>
@@ -814,13 +679,13 @@ function OpacityProps({ node, onChange }: { node: NodeState, onChange: (k: strin
   )
 }
 
-function LFOProps({ node, onChange }: { node: NodeState, onChange: (k: string, v: any) => void }) {
+function LFOProps({ node, onChange }: { node: any, onChange: (k: string, v: any) => void }) {
   const props = node.baseProps
-  const snap = useSnapshot(aninodeStore)
-  const lfoOutput = snap.nodes[node.id]?.outputs?.value as number | undefined
+  const snap = useSnapshot(engineStore)
+  const lfoOutput = snap.runtime.nodeOutputs[node.id]?.value as number | undefined
   
   // Get other nodes that LFO can target (exclude LFO nodes)
-  const targetableNodes = Object.values(snap.nodes).filter(
+  const targetableNodes = Object.values(snap.project.nodes).filter(
     n => n.id !== node.id && n.type !== 'LFONode'
   )
   
@@ -838,7 +703,7 @@ function LFOProps({ node, onChange }: { node: NodeState, onChange: (k: string, v
     }
   }
   
-  const selectedTargetNode = props.targetNodeId ? snap.nodes[props.targetNodeId] : null
+  const selectedTargetNode = props.targetNodeId ? snap.project.nodes[props.targetNodeId] : null
   const availableProps = selectedTargetNode ? getModulatableProps(selectedTargetNode.type) : []
   
   return (

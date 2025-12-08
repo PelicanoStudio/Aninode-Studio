@@ -58,7 +58,8 @@ target/
 *.out
 
 # Dev files
-#quick_reference/
+quick_reference/
+old_md_files/
 
 # Dependencies
 node_modules/

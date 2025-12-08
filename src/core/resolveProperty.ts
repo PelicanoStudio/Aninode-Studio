@@ -1,4 +1,4 @@
-import { aninodeStore } from './store.ts'
+import { engineStore } from './store.ts'
 
 /**
  * Resolves the final value of a property for a node,
@@ -10,19 +10,21 @@ export function resolveProperty(
   propName: string,
   defaultVal: any
 ): any {
-  const node = aninodeStore.nodes[nodeId]
-  if (!node) return defaultVal
-
-  // Priority 1: Level 3 - Override from connections
-  if (node.overrides[propName] !== undefined) {
-    return node.overrides[propName]
+  // Check Runtime Overrides (Level 3)
+  const runtimeOverrides = engineStore.runtime.overrides[nodeId]
+  if (runtimeOverrides && runtimeOverrides[propName] !== undefined) {
+    return runtimeOverrides[propName]
   }
+
+  // Check Project Definition (Level 1 & 2)
+  const node = engineStore.project.nodes[nodeId]
+  if (!node) return defaultVal
 
   // Priority 2: Level 2 - Preset reference
   const basePropValue = node.baseProps[propName]
   if (typeof basePropValue === 'string' && basePropValue.startsWith('preset:')) {
-    const _presetId = basePropValue.substring(7) // Remove 'preset:' prefix
-    // TODO: Implement preset resolution from aninodeStore.presets using _presetId
+    // const _presetId = basePropValue.substring(7) 
+    // TODO: Implement preset resolution from engineStore.project.presets
     // For now, fall through to base value
   }
 
@@ -45,18 +47,22 @@ export function resolveItemProperty(
   propName: string,
   defaultVal: any
 ): any {
-  const node = aninodeStore.nodes[nodeId]
+  // Check Runtime Overrides
+  const runtimeOverrides = engineStore.runtime.overrides[nodeId]
+  
+  // Try exact item-prop match if overrides supports it (Convention: "itemId.propName"?)
+  // For now assuming the new store overrides are simple Prop Key based.
+  // If the old system used nested objects, we might need to adjust key generation.
+  // Let's check for specific override key convention if applicable, otherwise skip.
+  
+  // Fallback to global node override for this prop
+  if (runtimeOverrides && runtimeOverrides[propName] !== undefined) {
+    return runtimeOverrides[propName]
+  }
+
+  // Check Project Definition
+  const node = engineStore.project.nodes[nodeId]
   if (!node) return defaultVal
-
-  // Priority 1: Level 3 - Item-specific override
-  if (node.overrides[itemId]?.[propName] !== undefined) {
-    return node.overrides[itemId][propName]
-  }
-
-  // Priority 1.5: Level 3 - Global node override
-  if (node.overrides[propName] !== undefined) {
-    return node.overrides[propName]
-  }
 
   // Priority 2: Level 2 - Preset (not yet implemented)
   const basePropKey = `${propName}${itemId}` // e.g., "scale3"

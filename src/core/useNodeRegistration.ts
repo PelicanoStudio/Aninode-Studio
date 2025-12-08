@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { aninodeStore, storeActions } from './store'
-import type { NodeState, NodeType } from '../types'
+import { engineStore, NodeDefinition } from './store'
 
 /**
  * Hook to register and unregister a node in the global store
+ * (Passive Data Entry - No Side Effects)
  */
 export function useNodeRegistration(
   nodeId: string | null | undefined,
-  nodeType: NodeType,
+  nodeType: string,
   baseProps: any,
   initialPosition = { x: 0, y: 0 }
 ) {
@@ -17,32 +17,37 @@ export function useNodeRegistration(
   useEffect(() => {
     if (!nodeId) return
 
-    // Register node on mount
-    const newNode: NodeState = {
+    // 1. Construct Definition (Project Layer)
+    const newNode: NodeDefinition = {
       id: nodeId,
       type: nodeType,
       name: baseProps.name || nodeId,
-      position: initialPosition,
+      position: initialPosition, 
       baseProps: { ...propsRef.current },
-      overrides: {},
-      outputs: {},
-      connectedInputs: {},
+      // Default Timeline Config (Independent/Passive)
+      timelineConfig: {
+        mode: 'independent',
+        offset: 0,
+        keyframes: {}
+      }
     }
 
-    storeActions.addNode(newNode)
-    console.log(`[Aninode] Node registered: ${nodeId} (Type: ${nodeType})`)
+    // 2. Register to Store (Mutation)
+    engineStore.project.nodes[nodeId] = newNode
+    console.log(`[Aninode] Node registered: ${nodeId}`)
 
-    // Cleanup on unmount
+    // 3. Cleanup
     return () => {
-      storeActions.removeNode(nodeId)
+      delete engineStore.project.nodes[nodeId]
       console.log(`[Aninode] Node unregistered: ${nodeId}`)
     }
-  }, [nodeId, nodeType, initialPosition])
+  }, [nodeId, nodeType]) // initialPosition ignored for now as nodes are layout-less in this phase or handled by UI
 
-  // Update baseProps when they change
+  // Update baseProps when they change (Reactive)
   useEffect(() => {
-    if (nodeId && aninodeStore.nodes[nodeId]) {
-      aninodeStore.nodes[nodeId].baseProps = { ...propsRef.current }
+    if (nodeId && engineStore.project.nodes[nodeId]) {
+        // Sync new props to definition
+      engineStore.project.nodes[nodeId].baseProps = { ...propsRef.current }
     }
   }, [nodeId, baseProps])
 }
