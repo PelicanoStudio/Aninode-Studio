@@ -23,6 +23,7 @@ dist-ssr
 # Editor
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -58,7 +59,7 @@ target/
 *.out
 
 # Dev files
-#uick_reference/
+quick_reference/
 old_md_files/
 
 # Dependencies

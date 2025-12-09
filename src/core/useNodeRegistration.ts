@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { engineStore, NodeDefinition } from './store'
+import { engineStore, NodeDefinition } from './engineStore'
 
 /**
  * Hook to register and unregister a node in the global store

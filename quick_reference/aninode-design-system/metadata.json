@@ -1,0 +1,5 @@
+{
+  "name": "Aninode Design System",
+  "description": "A high-fidelity, OLED-black node UI library for animation engines featuring real-time visualization and signal chain highlighting.",
+  "requestFramePermissions": []
+}
