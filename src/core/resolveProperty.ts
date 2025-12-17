@@ -1,4 +1,4 @@
-import { engineStore } from './engineStore.ts'
+import { engineStore } from './store'
 
 /**
  * Resolves the final value of a property for a node,

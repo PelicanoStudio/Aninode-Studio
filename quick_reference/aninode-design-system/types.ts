@@ -34,6 +34,8 @@ export interface NodeData {
   config: Record<string, any>;
   // Property Teleportation Bindings
   boundProps?: Record<string, { targetNodeId: string, targetProp: string }>;
+  // Dimensions for resizable nodes
+  dimensions?: { width: number; height: number };
 }
 
 export interface Connection {

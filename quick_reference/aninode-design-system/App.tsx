@@ -3,7 +3,6 @@ import { NodeData, Connection, NodeType, ConnectionType, GridType } from './type
 import { BaseNode, getTypeLabel } from './components/nodes/BaseNode';
 import { SidePanel } from './components/SidePanel';
 import { isMobileOrTablet } from './utils/deviceDetection';
-import { NEON_PALETTE, SNAP_SIZE } from './constants';
 import { getRayBoxIntersection } from './utils/geometry';
 import { getMenuPosition } from './utils/menuPosition';
 import { ShortcutsPanel } from './components/ui/ShortcutsPanel';
@@ -14,6 +13,23 @@ import { ConnectionLine } from './components/canvas/ConnectionLine';
 import { NodeContent } from './components/nodes/NodeContent';
 import { usePinchZoom } from './hooks/usePinchZoom';
 import { Link as LinkIcon, Unlink } from 'lucide-react';
+import { 
+  getWire, 
+  getSurface, 
+  getBorder,
+  portLayout,
+  panelLayout,
+  zIndex,
+  signalActive,
+  iconSizes,
+  neonPalette,
+  canvasLayout,
+  nodeLayout
+} from './src/tokens';
+
+// Local aliases for backward compatibility
+const NEON_PALETTE = neonPalette;
+const SNAP_SIZE = canvasLayout.snapSize;
 
 // History State Interface
 interface HistoryState {
@@ -601,7 +617,7 @@ export default function App() {
         {/* WIRES */}
         <svg className="absolute left-0 top-0 overflow-visible pointer-events-none z-10">
             <defs>
-                 <marker id="arrow-head" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill={isDarkMode ? "#666" : "#999"} /></marker>
+                 <marker id="arrow-head" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill={getWire('default', isDarkMode)} /></marker>
             </defs>
             {connections.map(conn => (
                 <ConnectionLine 
@@ -618,7 +634,15 @@ export default function App() {
                 />
             ))}
              {tempWire && (
-                <path d={`M ${tempWire.startType === 'output' ? getNodePosition(tempWire.startId).x + 272 : getNodePosition(tempWire.startId).x - 16} ${getNodePosition(tempWire.startId).y + 40} L ${tempWire.mouseX} ${tempWire.mouseY}`} stroke={isDarkMode ? "#666" : "#999"} strokeWidth={2 / viewport.zoom} strokeDasharray="5 5" fill="none" />
+                <path 
+                  d={`M ${tempWire.startType === 'output' 
+                      ? getNodePosition(tempWire.startId).x + (nodes.find(n => n.id === tempWire.startId)?.dimensions?.width ?? nodeLayout.width) + 16
+                      : getNodePosition(tempWire.startId).x + portLayout.inputX} ${getNodePosition(tempWire.startId).y + portLayout.offsetY} L ${tempWire.mouseX} ${tempWire.mouseY}`} 
+                  stroke={getWire('temp', isDarkMode)} 
+                  strokeWidth={2 / viewport.zoom} 
+                  strokeDasharray="5 5" 
+                  fill="none" 
+                />
             )}
         </svg>
 
@@ -638,6 +662,16 @@ export default function App() {
                     // But we handle selection in onNodeDown to allow drag-select.
                 }}
                 onToggleCollapse={(id) => setNodes(p => p.map(n => n.id === id ? { ...n, collapsed: !n.collapsed } : n))}
+                onResize={(id, width, height, x, y) => {
+                    setNodes(prev => prev.map(n => {
+                        if (n.id !== id) return n;
+                        const update: any = { dimensions: { width, height } };
+                        if (x !== undefined && y !== undefined) {
+                            update.position = { x, y };
+                        }
+                        return { ...n, ...update };
+                    }));
+                }}
                 onPortDown={handlePortDown}
                 onPortUp={handlePortUp}
                 onPortContextMenu={(id, type, e) => { setMenuData({ nodeId: id, type, x: e.clientX, y: e.clientY }); setActiveMenu('DISCONNECT'); }}
@@ -673,7 +707,8 @@ export default function App() {
                                 id: newId,
                                 label: n.label + ' (Copy)',
                                 position: { x: n.position.x + 50, y: n.position.y + 50 },
-                                boundProps: { ...n.boundProps }
+                                boundProps: { ...n.boundProps },
+                                dimensions: n.dimensions ? { ...n.dimensions } : undefined
                             });
                         });
 
@@ -771,7 +806,11 @@ export default function App() {
       
       {/* MENUS */}
       {activeMenu === 'PORT' && menuData && (
-          <div className="fixed z-[100] w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" style={{ left: menuData.x, top: menuData.y }} onMouseDown={e => e.stopPropagation()}>
+          <div 
+            className="fixed w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" 
+            style={{ left: menuData.x, top: menuData.y, zIndex: zIndex.contextMenu }} 
+            onMouseDown={e => e.stopPropagation()}
+          >
               {Object.values(NodeType)
                 .filter(type => {
                     // Filter logic:
@@ -810,7 +849,11 @@ export default function App() {
       )}
 
       {activeMenu === 'CONNECTION' && menuData && (
-          <div className="fixed z-[100] w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" style={{ left: menuData.x, top: menuData.y }} onMouseDown={e => e.stopPropagation()}>
+          <div 
+            className="fixed w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" 
+            style={{ left: menuData.x, top: menuData.y, zIndex: zIndex.contextMenu }} 
+            onMouseDown={e => e.stopPropagation()}
+          >
               <div className="px-4 py-2 text-xs font-bold text-neutral-500 border-b border-neutral-800">Connection Type</div>
               {Object.values(ConnectionType).map(type => (
                   <button key={type} className="block w-full text-left px-4 py-2 text-xs text-white hover:bg-white/10" onClick={() => {
@@ -826,7 +869,11 @@ export default function App() {
       )}
 
       {activeMenu === 'DISCONNECT' && menuData && (
-          <div className="fixed z-[100] w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" style={{ left: menuData.x, top: menuData.y }} onMouseDown={e => e.stopPropagation()}>
+          <div 
+            className="fixed w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" 
+            style={{ left: menuData.x, top: menuData.y, zIndex: zIndex.contextMenu }} 
+            onMouseDown={e => e.stopPropagation()}
+          >
               <button className="block w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-white/10" onClick={() => {
                   const newConns = connections.filter(c => !(c.target === menuData.nodeId && menuData.type === 'input') && !(c.source === menuData.nodeId && menuData.type === 'output'));
                   setConnections(newConns);
@@ -848,7 +895,11 @@ export default function App() {
           const safePos = getMenuPosition(propertyContextMenu.x, propertyContextMenu.y, menuWidth, menuHeight);
           
           return (
-              <div className="fixed z-[100] w-56 bg-black border border-neutral-800 rounded-lg shadow-xl overflow-hidden" style={{ left: safePos.left, top: safePos.top }} onMouseDown={e => e.stopPropagation()}>
+              <div 
+                className="fixed w-56 bg-black border border-neutral-800 rounded-lg shadow-xl overflow-hidden" 
+                style={{ left: safePos.left, top: safePos.top, zIndex: zIndex.contextMenu }} 
+                onMouseDown={e => e.stopPropagation()}
+              >
                   <div className="px-3 py-2 text-[10px] font-bold text-neutral-500 border-b border-neutral-800 uppercase tracking-wider">Property: {propertyContextMenu.propKey}</div>
                   <button className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-xs text-white hover:bg-white/10 transition-colors" onClick={() => { handleBindProp(propertyContextMenu.nodeId, propertyContextMenu.propKey, 'SEND'); setPropertyContextMenu(null); }}>
                       <LinkIcon size={14} className="text-accent-red" />

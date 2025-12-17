@@ -3,6 +3,14 @@ import React, { useState } from 'react';
 import { NodeData, NodeType } from '../types';
 import { Input } from './ui/Input';
 import { X, Sliders, Link as LinkIcon, Unlink, Image as ImageIcon, Hash, ToggleLeft, Copy, Activity, Box } from 'lucide-react';
+import { 
+  signalActive, 
+  getSurface, 
+  getBorder,
+  panelLayout,
+  zIndex,
+  iconSizes 
+} from '../src/tokens';
 
 interface SidePanelProps {
   selectedNode: NodeData | null;
@@ -33,17 +41,19 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
       onContextMenu({ x: e.clientX, y: e.clientY, propKey, nodeId: selectedNode.id });
   };
 
-  const panelClass = isDarkMode 
-      ? "bg-neutral-900/90 border-white/10" 
-      : "bg-white/90 border-neutral-200";
+  // Token-based styling
+  const panelBg = getSurface('panel', isDarkMode);
+  const borderColor = getBorder('default', isDarkMode);
+  const dividerColor = getBorder('divider', isDarkMode);
   const textClass = isDarkMode ? "text-white" : "text-neutral-900";
+  const accentColor = signalActive;
 
   const renderLabel = (label: string, propKey: string) => (
       <div className="flex justify-between items-center mb-1 pointer-events-none">
           <label className="text-xs text-neutral-500 font-mono uppercase tracking-wider">{label}</label>
           {boundProps[propKey] && (
-              <div className="text-accent-red flex items-center gap-1" title="Property Bound">
-                  <LinkIcon size={10} />
+              <div style={{ color: accentColor }} className="flex items-center gap-1" title="Property Bound">
+                  <LinkIcon size={iconSizes.xs} />
               </div>
           )}
       </div>
@@ -51,17 +61,33 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
 
   return (
     <div 
-        className={`fixed right-4 top-4 bottom-4 w-80 backdrop-blur-xl border rounded-2xl shadow-2xl z-[60] flex flex-col overflow-hidden transition-all duration-300 ${panelClass}`} 
+        className="fixed right-4 top-4 bottom-4 backdrop-blur-xl border rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
+        style={{
+          width: panelLayout.sidePanelWidth,
+          backgroundColor: panelBg,
+          borderColor: borderColor,
+          zIndex: zIndex.sidePanel
+        }}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onContextMenu(null); }}
         onContextMenu={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-white/5' : 'border-neutral-200'}`}>
+      <div 
+        className="flex items-center justify-between p-6 border-b"
+        style={{ borderColor: dividerColor }}
+      >
         <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded border flex items-center justify-center text-accent-red ${isDarkMode ? 'bg-black border-white/10' : 'bg-white border-neutral-200'}`}>
-                <Sliders size={16} />
+            <div 
+              className="w-8 h-8 rounded border flex items-center justify-center"
+              style={{ 
+                backgroundColor: isDarkMode ? '#000' : '#fff',
+                borderColor: borderColor,
+                color: accentColor 
+              }}
+            >
+                <Sliders size={iconSizes.md} />
             </div>
             <div>
                 <h2 className={`text-sm font-bold uppercase tracking-wider ${textClass}`}>{selectedNode.label}</h2>
@@ -69,7 +95,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
             </div>
         </div>
         <button onClick={onClose} className="text-neutral-500 hover:text-opacity-80 transition-colors">
-          <X size={20} />
+          <X size={iconSizes.lg} />
         </button>
       </div>
 
@@ -82,7 +108,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
             onChange={(e) => onUpdate(selectedNode.id, { label: e.target.value })} 
         />
 
-        <div className={`h-px my-6 ${isDarkMode ? 'bg-white/5' : 'bg-neutral-200'}`} />
+        <div 
+          className="h-px my-6"
+          style={{ backgroundColor: dividerColor }}
+        />
 
         {/* Dynamic Props based on Node Type */}
         <div className="space-y-4">
@@ -160,14 +189,25 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                  <div onContextMenu={(e) => handleContextMenu(e, 'enabled')} className="p-2 hover:bg-white/5 rounded cursor-context-menu relative group transition-colors">
                      {renderLabel('Initial State', 'enabled')}
                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs font-mono ${!selectedNode.config.enabled ? 'text-accent-red' : 'opacity-50'}`}>OFF</span>
+                        <span 
+                          className="text-xs font-mono"
+                          style={{ color: !selectedNode.config.enabled ? accentColor : undefined, opacity: selectedNode.config.enabled ? 0.5 : 1 }}
+                        >
+                          OFF
+                        </span>
                         <button 
                             onClick={() => handleChange('enabled', !selectedNode.config.enabled)}
-                            className={`w-12 h-6 rounded-full relative transition-colors ${selectedNode.config.enabled ? 'bg-accent-red' : 'bg-neutral-700'}`}
+                            className="w-12 h-6 rounded-full relative transition-colors"
+                            style={{ backgroundColor: selectedNode.config.enabled ? accentColor : (isDarkMode ? '#404040' : '#d4d4d4') }}
                         >
                             <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${selectedNode.config.enabled ? 'left-7' : 'left-1'}`} />
                         </button>
-                        <span className={`text-xs font-mono ${selectedNode.config.enabled ? 'text-accent-red' : 'opacity-50'}`}>ON</span>
+                        <span 
+                          className="text-xs font-mono"
+                          style={{ color: selectedNode.config.enabled ? accentColor : undefined, opacity: !selectedNode.config.enabled ? 0.5 : 1 }}
+                        >
+                          ON
+                        </span>
                      </div>
                  </div>
             )}

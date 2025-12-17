@@ -58,7 +58,7 @@ target/
 *.out
 
 # Dev files
-#uick_reference/
+quick_reference/
 old_md_files/
 
 # Dependencies

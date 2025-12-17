@@ -10,24 +10,41 @@ interface VisualizerProps {
 
 export const Visualizer: React.FC<VisualizerProps> = ({ type, frequency, amplitude, active, isDarkMode }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let animationId: number;
     let time = 0;
 
+    const resizeCanvas = () => {
+        const { clientWidth, clientHeight } = container;
+        canvas.width = clientWidth;
+        canvas.height = clientHeight;
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+        resizeCanvas();
+    });
+    
+    resizeObserver.observe(container);
+    resizeCanvas(); // Initial size
+
     const draw = () => {
       if (!ctx || !canvas) return;
       
-      // Clear with transparency
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
       const width = canvas.width;
       const height = canvas.height;
+      
+      // Clear with transparency
+      ctx.clearRect(0, 0, width, height);
+      
       const centerY = height / 2;
 
       // Define time factor t outside the loop
@@ -42,14 +59,17 @@ export const Visualizer: React.FC<VisualizerProps> = ({ type, frequency, amplitu
       ctx.lineWidth = 2;
 
       for (let x = 0; x < width; x++) {
-        // Normalized x from 0 to 1
         const xPos = x;
         let yPos = centerY;
 
+        // Scaling amplitude based on height availability to prevent clipping but maintain visibility
+        // Max amplitude is 40% of height
+        const scaledAmp = Math.min(amplitude * 20, height * 0.4);
+
         if (type === 'sine') {
-          yPos = centerY + Math.sin(x * 0.05 * frequency + t) * (amplitude * 20);
+          yPos = centerY + Math.sin(x * 0.05 * frequency + t) * scaledAmp;
         } else if (type === 'square') {
-           yPos = centerY + (Math.sin(x * 0.05 * frequency + t) > 0 ? 1 : -1) * (amplitude * 20);
+           yPos = centerY + (Math.sin(x * 0.05 * frequency + t) > 0 ? 1 : -1) * scaledAmp;
         }
 
         if (x === 0) ctx.moveTo(xPos, yPos);
@@ -62,10 +82,12 @@ export const Visualizer: React.FC<VisualizerProps> = ({ type, frequency, amplitu
       if (active) {
         const currentX = width / 2;
         let currentY = centerY;
+        const scaledAmp = Math.min(amplitude * 20, height * 0.4);
+
         if (type === 'sine') {
-           currentY = centerY + Math.sin(currentX * 0.05 * frequency + t) * (amplitude * 20);
+           currentY = centerY + Math.sin(currentX * 0.05 * frequency + t) * scaledAmp;
         } else if (type === 'square') {
-           currentY = centerY + (Math.sin(currentX * 0.05 * frequency + t) > 0 ? 1 : -1) * (amplitude * 20);
+           currentY = centerY + (Math.sin(currentX * 0.05 * frequency + t) > 0 ? 1 : -1) * scaledAmp;
         }
         
         ctx.beginPath();
@@ -88,11 +110,15 @@ export const Visualizer: React.FC<VisualizerProps> = ({ type, frequency, amplitu
 
     return () => {
       cancelAnimationFrame(animationId);
+      resizeObserver.disconnect();
     };
   }, [type, frequency, amplitude, active, isDarkMode]);
 
   return (
-    <div className={`w-full h-16 border rounded overflow-hidden relative ${isDarkMode ? 'bg-black border-neutral-900' : 'bg-white border-neutral-200'}`}>
+    <div 
+        ref={containerRef}
+        className={`w-full h-full min-h-[64px] border rounded overflow-hidden relative flex-1 ${isDarkMode ? 'bg-black border-neutral-900' : 'bg-white border-neutral-200'}`}
+    >
         {/* Grid Background */}
         <div className="absolute inset-0 opacity-20" 
              style={{ 
@@ -102,9 +128,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ type, frequency, amplitu
         </div>
         <canvas 
             ref={canvasRef} 
-            width={240} 
-            height={64} 
-            className="w-full h-full relative z-10"
+            className="w-full h-full relative z-10 block"
         />
     </div>
   );

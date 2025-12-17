@@ -121,9 +121,7 @@ export class AnimationEngine {
         const phase = resolveProperty(nodeId, 'phase', 0)
         const waveform = resolveProperty(nodeId, 'waveform', 'sine')
         
-        const t = time * frequency + (phase * Math.PI / 180) // Convert phase to radians for consistent math if needed, or keeping it simple
-        // Note: Playground used `t = time * frequency + phase`. Assuming phase is 0-1 or similar. 
-        // Let's stick to Playground logic for consistency:
+        // Calculate time position in oscillation
         const t_simple = time * frequency + phase 
 
         let value = 0

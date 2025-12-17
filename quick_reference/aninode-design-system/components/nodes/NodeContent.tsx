@@ -3,6 +3,12 @@ import { NodeData, NodeType } from '../../types';
 import { Visualizer } from './Visualizer';
 import { Copy } from 'lucide-react';
 import { useLongPress } from '../../hooks/useLongPress';
+import { 
+  signalActive, 
+  getSurface, 
+  getBorder,
+  iconSizes 
+} from '../../src/tokens';
 
 interface NodeContentProps {
   node: NodeData;
@@ -30,12 +36,24 @@ export const NodeContent: React.FC<NodeContentProps> = ({
   const valueLongPress = handleLongPress('value');
   const enabledLongPress = handleLongPress('enabled');
 
+  // Token-based styling
+  const accentColor = signalActive;
+  const inactiveSwitchBg = isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300';
+  const inputBorderClass = isDarkMode ? 'border-white/20 text-white' : 'border-black/20 text-black';
+
   switch(node.type) {
       case NodeType.OSCILLATOR:
-          return <Visualizer type="sine" frequency={node.config.frequency || 1} amplitude={node.config.amplitude || 1} active={true} isDarkMode={isDarkMode} />;
+          return (
+              <div className="w-full h-full flex flex-col">
+                  <Visualizer type="sine" frequency={node.config.frequency || 1} amplitude={node.config.amplitude || 1} active={true} isDarkMode={isDarkMode} />
+              </div>
+          );
       case NodeType.PICKER:
           return (
-              <div className="w-full aspect-video bg-neutral-900 rounded-lg overflow-hidden relative group">
+              <div 
+                className="w-full h-full flex-1 min-h-[100px] rounded-lg overflow-hidden relative group"
+                style={{ backgroundColor: getSurface('menu', isDarkMode) }}
+              >
                    {node.config.src ? <img src={node.config.src} alt="Asset" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-neutral-700">No Asset</div>}
               </div>
           );
@@ -43,7 +61,9 @@ export const NodeContent: React.FC<NodeContentProps> = ({
           return (
               <div className="pt-2" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                   <div className="flex justify-between text-xs font-mono mb-1 opacity-70">
-                      <span>{node.config.min || 0}</span><span className="text-accent-red font-bold">{node.config.value}</span><span>{node.config.max || 100}</span>
+                      <span>{node.config.min || 0}</span>
+                      <span style={{ color: accentColor }} className="font-bold">{node.config.value}</span>
+                      <span>{node.config.max || 100}</span>
                   </div>
                   <input 
                     type="range" 
@@ -54,7 +74,8 @@ export const NodeContent: React.FC<NodeContentProps> = ({
                     onChange={(e) => updateConfig('value', parseFloat(e.target.value))} 
                     onMouseUp={pushHistory} 
                     onTouchEnd={pushHistory} 
-                    className="w-full h-1 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-accent-red" 
+                    className="w-full h-1 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer"
+                    style={{ accentColor: accentColor }}
                     onContextMenu={(e) => { e.preventDefault(); onPropertyContextMenu?.(node.id, 'value', e.clientX, e.clientY); }}
                     {...valueLongPress}
                   />
@@ -68,7 +89,8 @@ export const NodeContent: React.FC<NodeContentProps> = ({
                     value={node.config.value} 
                     onChange={(e) => updateConfig('value', parseFloat(e.target.value))} 
                     onBlur={pushHistory} 
-                    className={`w-full bg-transparent border-b ${isDarkMode ? 'border-white/20 text-white' : 'border-black/20 text-black'} font-mono text-lg focus:outline-none focus:border-accent-red transition-colors`} 
+                    className={`w-full bg-transparent border-b ${inputBorderClass} font-mono text-lg focus:outline-none transition-colors`}
+                    style={{ '--focus-border-color': accentColor } as React.CSSProperties}
                     onMouseDown={(e) => e.stopPropagation()} 
                     onTouchStart={(e) => e.stopPropagation()} 
                     onContextMenu={(e) => { e.preventDefault(); onPropertyContextMenu?.(node.id, 'value', e.clientX, e.clientY); }}
@@ -82,7 +104,8 @@ export const NodeContent: React.FC<NodeContentProps> = ({
                   <span className="text-xs font-mono opacity-50">{node.config.enabled ? 'ON' : 'OFF'}</span>
                   <button 
                     onClick={() => { updateConfig('enabled', !node.config.enabled); pushHistory(); }} 
-                    className={`w-10 h-5 rounded-full relative transition-colors ${node.config.enabled ? 'bg-accent-red' : (isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300')}`}
+                    className={`w-10 h-5 rounded-full relative transition-colors ${node.config.enabled ? '' : inactiveSwitchBg}`}
+                    style={{ backgroundColor: node.config.enabled ? accentColor : undefined }}
                     onContextMenu={(e) => { e.preventDefault(); onPropertyContextMenu?.(node.id, 'enabled', e.clientX, e.clientY); }}
                     {...enabledLongPress}
                   >
@@ -91,7 +114,8 @@ export const NodeContent: React.FC<NodeContentProps> = ({
               </div>
           );
       case NodeType.CLONE:
-          return <div className="h-8 flex items-center justify-center gap-2 opacity-50"><Copy size={12} /><span className="text-xs font-mono">Linked Instance</span></div>;
+          return <div className="h-8 flex items-center justify-center gap-2 opacity-50"><Copy size={iconSizes.sm} /><span className="text-xs font-mono">Linked Instance</span></div>;
       default: return <div className="h-8 flex items-center justify-center text-xs opacity-30 font-mono uppercase">{node.type}</div>;
   }
 };
+
