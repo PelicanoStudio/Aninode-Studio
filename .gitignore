@@ -57,7 +57,8 @@ target/
 *.a
 *.out
 
-# Dev files
+# Dev file
+quick_reference/
 quick_reference/
 old_md_files/
 
