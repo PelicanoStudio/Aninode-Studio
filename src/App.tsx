@@ -1,7 +1,7 @@
-import { Playground } from '@pages/Playground'
+import UIApp from './UIApp'
 
 function App() {
-  return <Playground />
+  return <UIApp />
 }
 
 export default App

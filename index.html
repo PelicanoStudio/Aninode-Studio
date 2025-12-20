@@ -1,10 +1,104 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aninode - Nodal Animation Engine</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind Custom Config (matches UI Library) -->
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              oled: {
+                black: "#000000",
+                gray: "#111111",
+                border: "#333333",
+                highlight: "#FFFFFF",
+              },
+              paper: {
+                white: "#F5F5F5",
+                lines: "#E0E0E0",
+                text: "#111111",
+              },
+              accent: {
+                red: "#FF1F1F",
+                dim: "#4a0a0a",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 20px rgba(255, 31, 31, 0.3)",
+              "glow-sm": "0 0 10px rgba(255, 31, 31, 0.2)",
+            },
+          },
+        },
+      };
+    </script>
+
+    <!-- Custom Styles -->
+    <style>
+      body {
+        background-color: #000000;
+        color: #ffffff;
+        overflow: hidden;
+        transition: background-color 0.3s ease;
+        font-family: "Inter", sans-serif;
+      }
+      html.light body {
+        background-color: #f5f5f5;
+        color: #111111;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+      html.light ::-webkit-scrollbar-thumb {
+        background: #ccc;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+      html.light ::-webkit-scrollbar-thumb:hover {
+        background: #999;
+      }
+
+      /* Wire animation */
+      .node-wire-path {
+        stroke-dasharray: 10;
+        animation: dash 1s linear infinite;
+      }
+      @keyframes dash {
+        to {
+          stroke-dashoffset: -20;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

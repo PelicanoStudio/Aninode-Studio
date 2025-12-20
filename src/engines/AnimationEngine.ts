@@ -114,12 +114,15 @@ export class AnimationEngine {
       // Calculate Local Time for this node
       const time = this.resolveLocalTime(masterTime, node)
 
-      if (node.type === 'LFONode') {
+      // Handle both naming conventions: LFONode (engine) and OSCILLATOR (UI)
+      if (node.type === 'LFONode' || node.type === 'OSCILLATOR') {
         const frequency = resolveProperty(nodeId, 'frequency', 1)
         const min = resolveProperty(nodeId, 'min', 0)
         const max = resolveProperty(nodeId, 'max', 1)
         const phase = resolveProperty(nodeId, 'phase', 0)
         const waveform = resolveProperty(nodeId, 'waveform', 'sine')
+        // Also support 'amplitude' for UI compatibility
+        const amplitude = resolveProperty(nodeId, 'amplitude', 1)
         
         // Calculate time position in oscillation
         const t_simple = time * frequency + phase 
@@ -143,8 +146,8 @@ export class AnimationEngine {
             value = Math.random() // Noise is non-deterministic, usually bad for engines, but ok for now
             break
         }
-        
-        const outputValue = min + value * (max - min)
+        // Apply amplitude and map to min/max range
+        const outputValue = min + (value * amplitude) * (max - min)
         
         // Write to runtime outputs
         if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
@@ -158,12 +161,20 @@ export class AnimationEngine {
           engineStore.runtime.overrides[targetNodeId][targetProperty] = outputValue
         }
       }
+      // Handle SLIDER, NUMBER, BOOLEAN nodes - pass through their 'value' as output
+      if (node.type === 'SLIDER' || node.type === 'NUMBER' || node.type === 'BOOLEAN') {
+        const value = resolveProperty(nodeId, 'value', node.type === 'BOOLEAN' ? false : 50)
+        if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
+        engineStore.runtime.nodeOutputs[nodeId].value = value
+      }
     })
 
     // STEP 2: Process Transform Nodes
     // They read properties (including overrides set above)
     Object.entries(project.nodes).forEach(([nodeId, node]) => {
-      if (node.type === 'LFONode') return // Already processed
+      // Skip already processed types
+      if (node.type === 'LFONode' || node.type === 'OSCILLATOR' || 
+          node.type === 'SLIDER' || node.type === 'NUMBER' || node.type === 'BOOLEAN') return
       
       // Calculate Local Time for this node
       const time = this.resolveLocalTime(masterTime, node)
@@ -248,6 +259,24 @@ export class AnimationEngine {
             outputs.offsetX = resolveProperty(nodeId, 'offsetX', 0)
             outputs.offsetY = resolveProperty(nodeId, 'offsetY', 0)
           }
+          break
+        }
+
+        // UI TRANSFORM node - acts as multi-purpose transform based on config
+        case 'TRANSFORM': {
+          // Read config to determine what transform to apply
+          const scale = resolveProperty(nodeId, 'scale', 1)
+          const rotation = resolveProperty(nodeId, 'rotation', 0)
+          const opacity = resolveProperty(nodeId, 'opacity', 1)
+          const offsetX = resolveProperty(nodeId, 'offsetX', 0)
+          const offsetY = resolveProperty(nodeId, 'offsetY', 0)
+          
+          outputs.scaleX = scale
+          outputs.scaleY = scale
+          outputs.rotation = rotation
+          outputs.opacity = opacity
+          outputs.offsetX = offsetX
+          outputs.offsetY = offsetY
           break
         }
       }

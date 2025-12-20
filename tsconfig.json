@@ -17,6 +17,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
+      "@/ui/*": ["./src/ui/*"],
+      "@/tokens": ["./src/ui/tokens"],
+      "@/tokens/*": ["./src/ui/tokens/*"],
       "@/*": ["./src/*"],
       "@core/*": ["./src/core/*"],
       "@components/*": ["./src/components/*"],
