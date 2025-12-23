@@ -61,6 +61,7 @@ target/
 quick_reference/
 quick_reference_1/
 old_md_files/
+UI_Library/
 
 # Dependencies
 node_modules/

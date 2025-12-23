@@ -89,6 +89,7 @@ export default function UIApp() {
     currentX: number,
     currentY: number,
   } | null>(null);
+  const boxSelectJustEnded = useRef(false); // Track if box selection just ended to prevent context menu
 
   // Pinch zoom hook
   usePinchZoom(viewport, (newViewport) => storeActions.setViewport(newViewport), containerRef);
@@ -610,6 +611,8 @@ export default function UIApp() {
               storeActions.selectMultiple(selectedNodeIds);
             }
           }
+          // Mark that box selection just ended to prevent context menu
+          boxSelectJustEnded.current = true;
           setBoxSelect(null);
         }
       }}
@@ -647,9 +650,10 @@ export default function UIApp() {
         }
       }}
       onContextMenu={(e) => {
-        // Prevent context menu if box selecting
-        if (boxSelect) {
+        // Prevent context menu if box selecting or if box selection just ended
+        if (boxSelect || boxSelectJustEnded.current) {
           e.preventDefault();
+          boxSelectJustEnded.current = false; // Reset the flag
         }
       }}
     >
