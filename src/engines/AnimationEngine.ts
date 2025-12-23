@@ -1,6 +1,9 @@
-import gsap from 'gsap'
-import { resolveProperty } from '../core/resolveProperty'
-import { engineStore } from '../core/store'
+import gsap from 'gsap';
+import '../core/nodeRegistrations'; // Ensure all nodes are registered
+import { getNodeDefinition, type ComputeContext } from '../core/nodeRegistry';
+import { resolveProperty } from '../core/resolveProperty';
+import { engineStore } from '../core/store';
+import { getProcessingOrder } from '../core/topoSort';
 
 /**
  * ANIMATION ENGINE
@@ -8,6 +11,28 @@ import { engineStore } from '../core/store'
  */
 export class AnimationEngine {
   private static _instance: AnimationEngine
+  
+  // Real elapsed time - accumulates regardless of timeline state
+  // Used for Independent mode nodes (LFOs, infinite loops, etc.)
+  private realElapsedTime: number = 0
+  
+  // FPS Stats for debug window
+  private frameCount: number = 0
+  private lastFpsUpdate: number = 0
+  private _currentFps: number = 60
+  private _frameTime: number = 16.67
+  
+  // Public stats getter
+  public get stats() {
+    return {
+      fps: this._currentFps,
+      frameTime: this._frameTime,
+      realElapsedTime: this.realElapsedTime,
+      nodeCount: Object.keys(engineStore.project.nodes).length,
+      outputCount: Object.keys(engineStore.runtime.nodeOutputs).length,
+      connectionCount: Object.keys(engineStore.project.connections).length,
+    }
+  }
   
   private constructor() {
     this.startLoop()
@@ -42,11 +67,22 @@ export class AnimationEngine {
     const state = engineStore.runtime.timeline
     const definition = engineStore.project.timeline
     
-    // 1. MASTER TIME LOGIC
+    // ALWAYS accumulate real elapsed time (for Independent mode nodes)
+    const deltaSeconds = deltaTime / 1000
+    this.realElapsedTime += deltaSeconds
+    
+    // Update FPS stats (every frame)
+    this.frameCount++
+    this._frameTime = deltaTime
+    const now = performance.now()
+    if (now - this.lastFpsUpdate >= 1000) {
+      this._currentFps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate))
+      this.frameCount = 0
+      this.lastFpsUpdate = now
+    }
+
+    // 1. MASTER TIME LOGIC (only advances when playing)
     if (state.isPlaying) {
-      // Calculate delta in seconds
-      const deltaSeconds = deltaTime / 1000
-      
       // Advance time
       let newTime = state.masterTime + (deltaSeconds * state.timeScale)
       
@@ -69,10 +105,119 @@ export class AnimationEngine {
       state.masterTime = newTime
     }
 
-    // 2. COMPUTE SIGNALS & NODES
-    this.computeNodes(state.masterTime)
+    // 2. COMPUTE SIGNALS & NODES FIRST (generates nodeOutputs)
+    // Pass realElapsedTime for Independent mode nodes
+    this.computeNodes(state.masterTime, this.realElapsedTime)
+    
+    // 3. PROCESS CONNECTIONS AFTER - propagates fresh outputs to overrides
+    // When source is disabled, clears the override so next frame uses baseProps
+    this.processConnections()
+  }
+  
+  /**
+   * PROCESS CONNECTIONS
+   * Reads from runtime.nodeOutputs and writes to runtime.overrides
+   * This is the critical data flow step that makes connections work
+   */
+  private processConnections() {
+    const connections = engineStore.project.connections
+    const nodeOutputs = engineStore.runtime.nodeOutputs
+    const nodes = engineStore.project.nodes
+    
+    Object.values(connections).forEach(conn => {
+      const sourceNode = nodes[conn.sourceNodeId]
+      const isSourceEnabled = sourceNode?.baseProps?.enabled !== false
+      
+      if (isSourceEnabled) {
+        // Source is enabled - propagate value to target's overrides
+        const sourceOutput = nodeOutputs[conn.sourceNodeId]
+        const value = sourceOutput?.[conn.sourceProp]
+        
+        if (value !== undefined) {
+          // Initialize target override object if needed
+          if (!engineStore.runtime.overrides[conn.targetNodeId]) {
+            engineStore.runtime.overrides[conn.targetNodeId] = {}
+          }
+          // Write the value to target's overrides
+          engineStore.runtime.overrides[conn.targetNodeId][conn.targetProp] = value
+        }
+      } else {
+        // Source is disabled - CLEAR the override (revert to baseProps per 3-Level Hierarchy)
+        if (engineStore.runtime.overrides[conn.targetNodeId]) {
+          delete engineStore.runtime.overrides[conn.targetNodeId][conn.targetProp]
+        }
+      }
+    })
   }
 
+  /**
+   * COMPUTE NODE WITH REGISTRY
+   * Uses the Node Registry to compute a node's outputs.
+   * Supports enable/bypass toggles.
+   */
+  private computeNodeWithRegistry(
+    nodeId: string, 
+    node: any, 
+    realElapsedTime: number, 
+    masterTime: number
+  ): boolean {
+    const def = getNodeDefinition(node.type)
+    if (!def || !def.compute) return false
+    
+    // Check enabled state
+    const enabled = node.baseProps?.enabled !== false // Default to enabled
+    if (!enabled) {
+      // Node is disabled - clear outputs
+      engineStore.runtime.nodeOutputs[nodeId] = {}
+      return true // Handled
+    }
+    
+    // Check bypass state
+    const bypassed = node.baseProps?.bypassed === true
+    if (bypassed) {
+      // Bypass - pass first input directly to first output
+      const firstInputKey = def.inputs[0]?.key
+      const firstOutputKey = def.outputs[0]?.key
+      if (firstInputKey && firstOutputKey) {
+        const inputValue = resolveProperty(nodeId, firstInputKey, 0)
+        engineStore.runtime.nodeOutputs[nodeId] = { [firstOutputKey]: inputValue }
+      }
+      return true // Handled
+    }
+    
+    // Resolve time based on timeline mode
+    const timelineMode = def.defaultTimelineMode || 'independent'
+    const time = timelineMode === 'independent' 
+      ? realElapsedTime 
+      : this.resolveLocalTime(masterTime, node)
+    
+    // Gather inputs from overrides
+    const inputs: Record<string, any> = {}
+    for (const inputPort of def.inputs) {
+      inputs[inputPort.key] = resolveProperty(nodeId, inputPort.key, undefined)
+    }
+    
+    // Build compute context
+    const ctx: ComputeContext = {
+      nodeId,
+      time,
+      realElapsedTime,
+      masterTime,
+      inputs,
+      baseProps: node.baseProps || {},
+      store: engineStore
+    }
+    
+    // Execute compute function
+    const result = def.compute(ctx)
+    
+    // Write outputs to runtime
+    if (result?.outputs) {
+      engineStore.runtime.nodeOutputs[nodeId] = result.outputs
+    }
+    
+    return true // Node was handled by registry
+  }
    /**
    * RESOLVE LOCAL TIME
    * Phase 3.1: Calculate localTime for each node based on timelineConfig
@@ -104,70 +249,72 @@ export class AnimationEngine {
   /**
    * PROCESS PASSIVE NODES
    * Reads definitions from Project layer, writes computed values to Runtime layer.
+   * @param masterTime - Timeline time (for Linked mode)
+   * @param realElapsedTime - Real wall-clock time (for Independent mode)
    */
-  private computeNodes(masterTime: number) {
+  private computeNodes(masterTime: number, realElapsedTime: number) {
      const project = engineStore.project
      
-     // STEP 1: Process LFO nodes first (Signal Generators)
-     // They write to other nodes' overrides
-     Object.entries(project.nodes).forEach(([nodeId, node]) => {
-      // Calculate Local Time for this node
-      const time = this.resolveLocalTime(masterTime, node)
-
-      // Handle both naming conventions: LFONode (engine) and OSCILLATOR (UI)
-      if (node.type === 'LFONode' || node.type === 'OSCILLATOR') {
-        const frequency = resolveProperty(nodeId, 'frequency', 1)
-        const min = resolveProperty(nodeId, 'min', 0)
-        const max = resolveProperty(nodeId, 'max', 1)
-        const phase = resolveProperty(nodeId, 'phase', 0)
-        const waveform = resolveProperty(nodeId, 'waveform', 'sine')
-        // Also support 'amplitude' for UI compatibility
-        const amplitude = resolveProperty(nodeId, 'amplitude', 1)
-        
-        // Calculate time position in oscillation
-        const t_simple = time * frequency + phase 
-
-        let value = 0
-        
-        switch (waveform) {
-          case 'sine':
-            value = (Math.sin(t_simple * Math.PI * 2) + 1) / 2
-            break
-          case 'square':
-            value = Math.sin(t_simple * Math.PI * 2) > 0 ? 1 : 0
-            break
-          case 'triangle':
-            value = Math.abs((t_simple % 1) * 2 - 1)
-            break
-          case 'sawtooth':
-            value = t_simple % 1
-            break
-          case 'noise':
-            value = Math.random() // Noise is non-deterministic, usually bad for engines, but ok for now
-            break
-        }
-        // Apply amplitude and map to min/max range
-        const outputValue = min + (value * amplitude) * (max - min)
-        
-        // Write to runtime outputs
-        if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
-        engineStore.runtime.nodeOutputs[nodeId].value = outputValue
-        
-        // Write to target node's overrides
-        const targetNodeId = node.baseProps.targetNodeId
-        const targetProperty = node.baseProps.targetProperty
-        if (targetNodeId && targetProperty && engineStore.project.nodes[targetNodeId]) {
-          if (!engineStore.runtime.overrides[targetNodeId]) engineStore.runtime.overrides[targetNodeId] = {}
-          engineStore.runtime.overrides[targetNodeId][targetProperty] = outputValue
-        }
-      }
-      // Handle SLIDER, NUMBER, BOOLEAN nodes - pass through their 'value' as output
-      if (node.type === 'SLIDER' || node.type === 'NUMBER' || node.type === 'BOOLEAN') {
-        const value = resolveProperty(nodeId, 'value', node.type === 'BOOLEAN' ? false : 50)
-        if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
-        engineStore.runtime.nodeOutputs[nodeId].value = value
-      }
-    })
+     // Get nodes in topologically sorted order (dependencies before dependents)
+     const sortedNodeIds = getProcessingOrder()
+     
+     // STEP 1: Compute all nodes using registry (with enable/bypass support)
+     sortedNodeIds.forEach(nodeId => {
+       const node = project.nodes[nodeId]
+       if (!node) return // Node may have been deleted
+       
+       // Try registry-based compute first (supports enable/bypass)
+       const handledByRegistry = this.computeNodeWithRegistry(nodeId, node, realElapsedTime, masterTime)
+       
+       // If not handled by registry, use legacy fallback
+       if (!handledByRegistry) {
+         // Legacy LFO handling (for nodes not yet in registry)
+         if (node.type === 'LFONode' || node.type === 'OSCILLATOR') {
+           const time = realElapsedTime
+           const frequency = resolveProperty(nodeId, 'frequency', 1)
+           const min = resolveProperty(nodeId, 'min', 0)
+           const max = resolveProperty(nodeId, 'max', 100)
+           const phase = resolveProperty(nodeId, 'phase', 0)
+           const waveform = resolveProperty(nodeId, 'waveform', 'sine')
+           const amplitude = resolveProperty(nodeId, 'amplitude', 1)
+           
+           const t_simple = time * frequency + phase
+           let value = 0
+           
+           switch (waveform) {
+             case 'sine':
+               value = (Math.sin(t_simple * Math.PI * 2) + 1) / 2
+               break
+             case 'square':
+               value = Math.sin(t_simple * Math.PI * 2) > 0 ? 1 : 0
+               break
+             case 'triangle':
+               value = Math.abs((t_simple % 1) * 2 - 1)
+               break
+             case 'sawtooth':
+               value = t_simple % 1
+               break
+             case 'inverted-sawtooth':
+               value = 1 - (t_simple % 1)
+               break
+             case 'noise':
+               value = Math.random()
+               break
+           }
+           
+           const outputValue = min + (value * amplitude) * (max - min)
+           if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
+           engineStore.runtime.nodeOutputs[nodeId].value = outputValue
+         }
+         
+         // Legacy SLIDER/NUMBER/BOOLEAN handling
+         if (node.type === 'SLIDER' || node.type === 'NUMBER' || node.type === 'BOOLEAN') {
+           const value = resolveProperty(nodeId, 'value', node.type === 'BOOLEAN' ? false : 50)
+           if (!engineStore.runtime.nodeOutputs[nodeId]) engineStore.runtime.nodeOutputs[nodeId] = {}
+           engineStore.runtime.nodeOutputs[nodeId].value = value
+         }
+       }
+     })
 
     // STEP 2: Process Transform Nodes
     // They read properties (including overrides set above)
@@ -279,6 +426,25 @@ export class AnimationEngine {
           outputs.offsetY = offsetY
           break
         }
+      }
+    })
+
+    // STEP 3: Process Connections (Wire data between nodes)
+    // For each connection, read source node's output and write to target node's overrides
+    Object.values(project.connections).forEach(connection => {
+      const sourceNodeId = connection.sourceNodeId
+      const sourceProp = connection.sourceProp || 'value'
+      const targetNodeId = connection.targetNodeId
+      const targetProp = connection.targetProp || 'value'
+      
+      // Get value from source node's outputs
+      const sourceOutputs = engineStore.runtime.nodeOutputs[sourceNodeId]
+      if (sourceOutputs && sourceOutputs[sourceProp] !== undefined) {
+        // Write to target node's overrides
+        if (!engineStore.runtime.overrides[targetNodeId]) {
+          engineStore.runtime.overrides[targetNodeId] = {}
+        }
+        engineStore.runtime.overrides[targetNodeId][targetProp] = sourceOutputs[sourceProp]
       }
     })
   }

@@ -1,4 +1,11 @@
-import { QualityTier, isFeatureEnabled, visualizerThrottle } from '@/tokens';
+import {
+    isFeatureEnabled,
+    QualityTier,
+    staticWaveformLayout,
+    visualizerThrottle,
+    waveformIconPaths,
+    WaveformType
+} from '@/tokens';
 import React, { useEffect, useRef } from 'react';
 
 interface VisualizerProps {
@@ -7,18 +14,95 @@ interface VisualizerProps {
   amplitude: number;
   active: boolean;
   isDarkMode: boolean;
+  // Mode: animated (default) = canvas animation, static = two-box icon+value display
+  mode?: 'animated' | 'static';
+  // Waveform type for static icon (more options than animation type)
+  waveform?: WaveformType;
   // Performance props
   paused?: boolean;
   throttleMs?: number;
   qualityTier?: QualityTier;
 }
 
+/**
+ * STATIC WAVEFORM DISPLAY
+ * Two-box design: waveform icon + frequency value
+ */
+const StaticWaveformDisplay: React.FC<{
+  waveform: WaveformType;
+  frequency: number;
+  isDarkMode: boolean;
+  active: boolean;
+}> = ({ waveform, frequency, isDarkMode, active }) => {
+  const layout = staticWaveformLayout;
+  const iconPath = waveformIconPaths[waveform] || waveformIconPaths['sine'];
+  
+  const boxBg = isDarkMode ? 'bg-neutral-900' : 'bg-neutral-100';
+  const boxBorder = isDarkMode ? 'border-neutral-700' : 'border-neutral-300';
+  const waveColor = active ? '#FF1F1F' : (isDarkMode ? '#555' : '#999');
+  const textColor = active ? 'text-red-500' : (isDarkMode ? 'text-neutral-400' : 'text-neutral-500');
+  
+  return (
+    <div 
+      className="flex gap-2 p-2"
+      style={{ gap: layout.boxGap }}
+    >
+      {/* Waveform Icon Box */}
+      <div 
+        className={`flex items-center justify-center border ${boxBg} ${boxBorder}`}
+        style={{ 
+          width: layout.iconBoxSize, 
+          height: layout.iconBoxSize,
+          borderRadius: layout.borderRadius,
+        }}
+      >
+        <svg 
+          viewBox="0 0 48 32" 
+          width={layout.iconBoxSize - layout.padding * 2} 
+          height={(layout.iconBoxSize - layout.padding * 2) * 0.66}
+        >
+          <path 
+            d={iconPath} 
+            fill="none" 
+            stroke={waveColor} 
+            strokeWidth="2.5" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      
+      {/* Frequency Value Box */}
+      <div 
+        className={`flex items-center justify-center border ${boxBg} ${boxBorder} font-mono ${textColor}`}
+        style={{ 
+          minWidth: layout.valueBoxMinWidth,
+          height: layout.iconBoxSize,
+          borderRadius: layout.borderRadius,
+          fontSize: layout.fontSize.value,
+          fontWeight: 600,
+          padding: `0 ${layout.padding}px`,
+        }}
+      >
+        {typeof frequency === 'number' ? frequency.toFixed(1) : frequency}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * VISUALIZER COMPONENT
+ * mode="animated": Canvas-based waveform animation (original)
+ * mode="static": Two-box waveform icon + frequency display
+ */
 export const Visualizer: React.FC<VisualizerProps> = ({ 
   type, 
   frequency, 
   amplitude, 
   active, 
   isDarkMode,
+  mode = 'animated',
+  waveform,
   paused = false,
   throttleMs,
   qualityTier = QualityTier.HIGH
@@ -26,6 +110,20 @@ export const Visualizer: React.FC<VisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Static mode: render two-box display
+  if (mode === 'static') {
+    const effectiveWaveform: WaveformType = waveform || (type === 'sine' ? 'sine' : type === 'square' ? 'square' : 'noise');
+    return (
+      <StaticWaveformDisplay 
+        waveform={effectiveWaveform} 
+        frequency={frequency} 
+        isDarkMode={isDarkMode} 
+        active={active} 
+      />
+    );
+  }
+
+  // Animated mode: canvas-based waveform (original logic)
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -37,8 +135,8 @@ export const Visualizer: React.FC<VisualizerProps> = ({
     // Check if waveforms are enabled at current quality tier
     const waveformsEnabled = isFeatureEnabled(qualityTier, 'waveforms');
     
-    // If paused or waveforms disabled, draw static frame and exit
-    if (paused || !waveformsEnabled) {
+    // If paused, waveforms disabled, or node is not active, draw static frame and exit
+    if (paused || !waveformsEnabled || !active) {
       // Draw a single static frame
       const resizeCanvas = () => {
         const { clientWidth, clientHeight } = container;

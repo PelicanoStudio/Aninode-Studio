@@ -6,6 +6,7 @@ import {
   getSurface,
   iconSizes,
   isFeatureEnabled,
+  isNodeScalable,
   nodeLayout,
   portLayout,
   QualityTier,
@@ -13,7 +14,7 @@ import {
   zIndex
 } from '@/tokens';
 import { NodeData, NodeType } from '@/ui/types';
-import { Activity, Box, ChevronDown, ChevronUp, Copy, Cpu, GripHorizontal, Hash, Image as ImageIcon, Monitor, Sliders, ToggleLeft } from 'lucide-react';
+import { Activity, Box, ChevronDown, ChevronUp, Copy, Cpu, FastForward, GripHorizontal, Hash, Image as ImageIcon, Monitor, Power, Sliders, Terminal, ToggleLeft } from 'lucide-react';
 import React from 'react';
 
 interface BaseNodeProps {
@@ -39,6 +40,9 @@ interface BaseNodeProps {
   onNodeDown: (e: React.MouseEvent) => void;
   // Node Resize Handler
   onResize?: (id: string, width: number, height: number, x?: number, y?: number) => void;
+  // Enable/Bypass Toggle Handlers
+  onToggleEnabled?: (id: string, enabled: boolean) => void;
+  onToggleBypassed?: (id: string, bypassed: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -54,6 +58,7 @@ const getNodeIcon = (type: NodeType) => {
     case NodeType.NUMBER: return <Hash size={iconSize} />;
     case NodeType.BOOLEAN: return <ToggleLeft size={iconSize} />;
     case NodeType.CLONE: return <Copy size={iconSize} />;
+    case NodeType.DEBUG: return <Terminal size={iconSize} />;
     default: return <Box size={iconSize} />;
   }
 };
@@ -66,6 +71,7 @@ export const getTypeLabel = (type: NodeType) => {
         case NodeType.NUMBER: return "VALUE";
         case NodeType.BOOLEAN: return "SWITCH";
         case NodeType.CLONE: return "INSTANCE";
+        case NodeType.DEBUG: return "DEBUG";
         default: return type;
     }
 }
@@ -88,6 +94,8 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
   onPortDoubleClick,
   onNodeDown,
   onResize,
+  onToggleEnabled,
+  onToggleBypassed,
   children 
 }) => {
   
@@ -247,31 +255,35 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         onNodeDown(e);
       }}
     >
-      {/* Invisible Resize Handles (Corners) */}
-      {/* SE */}
-      <div 
-        className="absolute bottom-0 right-0 z-50 cursor-nwse-resize"
-        style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
-        onMouseDown={handleResizeStart('se')}
-      />
-      {/* SW */}
-      <div 
-        className="absolute bottom-0 left-0 z-50 cursor-nesw-resize"
-        style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
-        onMouseDown={handleResizeStart('sw')}
-      />
-      {/* NE */}
-      <div 
-        className="absolute top-0 right-0 z-50 cursor-nesw-resize"
-        style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
-        onMouseDown={handleResizeStart('ne')}
-      />
-      {/* NW */}
-      <div 
-        className="absolute top-0 left-0 z-50 cursor-nwse-resize"
-        style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
-        onMouseDown={handleResizeStart('nw')}
-      />
+      {/* Invisible Resize Handles (Corners) - Only for scalable node types */}
+      {isNodeScalable(data.type) && (
+        <>
+          {/* SE */}
+          <div 
+            className="absolute bottom-0 right-0 z-50 cursor-nwse-resize"
+            style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
+            onMouseDown={handleResizeStart('se')}
+          />
+          {/* SW */}
+          <div 
+            className="absolute bottom-0 left-0 z-50 cursor-nesw-resize"
+            style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
+            onMouseDown={handleResizeStart('sw')}
+          />
+          {/* NE */}
+          <div 
+            className="absolute top-0 right-0 z-50 cursor-nesw-resize"
+            style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
+            onMouseDown={handleResizeStart('ne')}
+          />
+          {/* NW */}
+          <div 
+            className="absolute top-0 left-0 z-50 cursor-nwse-resize"
+            style={{ width: resizeHitboxSize, height: resizeHitboxSize }}
+            onMouseDown={handleResizeStart('nw')}
+          />
+        </>
+      )}
 
       {/* Input Port (Left) */}
       {data.type !== NodeType.PICKER && data.type !== NodeType.SLIDER && data.type !== NodeType.NUMBER && data.type !== NodeType.BOOLEAN && (
@@ -372,14 +384,46 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             <span className="text-[10px] font-mono text-neutral-600 uppercase mt-0.5">{getTypeLabel(data.type)}</span>
           </div>
         </div>
-        <div 
-            className={`cursor-pointer p-1 hover:text-opacity-80 ${subTextColor}`}
-            onClick={(e) => {
+        <div className="flex items-center gap-1">
+          {/* Enable/Disable Toggle */}
+          {onToggleEnabled && (
+            <button
+              title={data.config?.enabled !== false ? 'Disable node' : 'Enable node'}
+              className={`p-1 rounded transition-colors ${data.config?.enabled !== false ? 'text-green-500 hover:bg-green-500/20' : 'text-neutral-500 hover:bg-neutral-500/20'}`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
                 e.stopPropagation();
-                onToggleCollapse(data.id);
-            }}
-        >
-          {data.collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                onToggleEnabled(data.id, data.config?.enabled === false);
+              }}
+            >
+              <Power size={12} />
+            </button>
+          )}
+          {/* Bypass Toggle */}
+          {onToggleBypassed && (
+            <button
+              title={data.config?.bypassed ? 'Enable processing' : 'Bypass node'}
+              className={`p-1 rounded transition-colors ${data.config?.bypassed ? 'text-yellow-500 hover:bg-yellow-500/20' : 'text-neutral-500 hover:bg-neutral-500/20'}`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBypassed(data.id, !data.config?.bypassed);
+              }}
+            >
+              <FastForward size={12} />
+            </button>
+          )}
+          {/* Collapse Toggle */}
+          <div 
+              className={`cursor-pointer p-1 hover:text-opacity-80 ${subTextColor}`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCollapse(data.id);
+              }}
+          >
+            {data.collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </div>
         </div>
       </div>
 

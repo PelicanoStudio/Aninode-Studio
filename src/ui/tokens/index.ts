@@ -4,103 +4,101 @@
  */
 
 // Master theme (preferred import)
-export { theme, getThemeColors, getLayout, getAnimation } from './theme.tokens';
+export { getAnimation, getLayout, getThemeColors, theme } from './theme.tokens';
 export type { Theme } from './theme.tokens';
 
 // Individual token modules
+export * as animation from './animation';
 export * as colors from './colors';
 export * as layout from './layout';
-export * as animation from './animation';
+export * as performanceModule from './performance';
+export * as responsiveModule from './responsive';
 export * as shortcutsModule from './shortcuts';
 export * as spacingModule from './spacing';
-export * as responsiveModule from './responsive';
-export * as performanceModule from './performance';
 
 // Engine contract (for animation engine integration)
 export {
-  getEngineUIConfig,
-  defaultPerformanceHints,
-  type EngineUIConfig,
-  type EnginePerformanceHints,
+    CONNECTION_PROPS,
+    defaultPerformanceHints,
+    getDefaultSourceProp,
+    getDefaultTargetProp,
+    getEngineUIConfig,
+    type EnginePerformanceHints,
+    type EngineUIConfig
 } from './engine.contract';
 
 // Commonly used direct exports
-export { 
-  signalActive, 
-  neonPalette,
-  getColor,
-  getSurface,
-  getBorder,
-  getPort,
-  getWire,
-  getGrid,
-  getText,
+export {
+    getBorder, getColor, getGrid, getPort, getSurface, getText, getWire, neonPalette, signalActive
 } from './colors';
 
 export {
-  node as nodeLayout,
-  port as portLayout,
-  wire as wireLayout,
-  canvas as canvasLayout,
-  panel as panelLayout,
-  zIndex,
-  icon as iconSizes,
+    canvas as canvasLayout, icon as iconSizes, interaction, node as nodeLayout, panel as panelLayout, port as portLayout,
+    wire as wireLayout, zIndex
 } from './layout';
 
 export {
-  duration,
-  easing,
-  cssEasing,
+    cssEasing, duration,
+    easing
 } from './animation';
 
 export {
-  shortcuts,
-  formatShortcut,
-  getShortcutsByCategory,
-  valueConversion,
+    formatShortcut,
+    getShortcutsByCategory, shortcuts, valueConversion
 } from './shortcuts';
 
 export {
-  connectionRules,
-  suggestConnectionType,
-  validateConnectionType,
-  getConnectionTypeOptions,
+    connectionRules, getConnectionTypeOptions, suggestConnectionType,
+    validateConnectionType
 } from './connections';
 
 // Spacing exports
 export {
-  spacing,
-  semanticSpacing,
-  nodeSpacing,
-  baseUnit,
-  getSpacing,
-  getSemanticSpacing,
-  calcSpacing,
+    baseUnit, calcSpacing, getSemanticSpacing, getSpacing, nodeSpacing, semanticSpacing, spacing
 } from './spacing';
 
 // Responsive exports
 export {
-  breakpoints,
-  minWidth,
-  maxWidth,
-  between,
-  matchesBreakpoint,
-  getCurrentBreakpoint,
-  responsiveValue,
-  canvasResponsive,
+    between, breakpoints, canvasResponsive, getCurrentBreakpoint, matchesBreakpoint, maxWidth, minWidth, responsiveValue
 } from './responsive';
 
 // Performance exports
 export {
-  QualityTier,
-  qualityFeatures,
-  lodThresholds,
-  visualizerThrottle,
-  wireSimplification,
-  nodeRenderThresholds,
-  getQualityFeatures,
-  isFeatureEnabled,
-  getLodLevel,
-  getRecommendedTier,
-  getVisualizerInterval,
+    QualityTier, getLodLevel, getQualityFeatures, getRecommendedTier,
+    getVisualizerInterval, isFeatureEnabled, lodThresholds, nodeRenderThresholds, qualityFeatures, visualizerThrottle,
+    wireSimplification
 } from './performance';
+
+// Waveform exports (LFO visualization)
+export {
+    calculateWaveformY, getWaveformColor, getWaveformLabel,
+    staticWaveformLayout, waveformAnimation, waveformColors,
+    waveformIconPaths, waveformLayout
+} from './waveform';
+export type { WaveformType } from './waveform';
+
+// Port exports (default ports, expose buttons)
+export {
+    defaultPorts,
+    exposeButton, getDefaultPorts, getExposeButtonColor, isDefaultPort, portTooltips
+} from './ports';
+export type { PortDefinition, PortDirection } from './ports';
+
+// Node sizing exports (responsive dimensions)
+export {
+    getNodeDimensions, getResponsiveDimension,
+    getResponsiveFontSize,
+    getResponsiveIconSize, isNodeScalable, nodeCategories,
+    nodeDimensions,
+    nodeScalability, responsiveScale
+} from './nodeSizing';
+export type { Breakpoint, NodeCategory } from './nodeSizing';
+
+// Connection semantics exports
+export {
+    connectionColors, connectionSemantics,
+    connectionStyles, getConnectionColor,
+    getConnectionStyle, suggestConnectionType as suggestConnectionTypeSemantic
+} from './connectionSemantics';
+export type { ConnectionSemantic } from './connectionSemantics';
+

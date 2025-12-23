@@ -25,7 +25,7 @@ export const NodePicker: React.FC<NodePickerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center" onMouseDown={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center" onMouseDown={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
         <div className={`w-[600px] h-[400px] rounded-2xl border shadow-2xl flex flex-col ${isDarkMode ? 'bg-neutral-900 border-white/10' : 'bg-white border-neutral-200'}`}>
             <div className="p-6 border-b flex justify-between items-center">
                 <h2 className="text-xl font-bold tracking-tight">Add Nodes</h2>

@@ -7,7 +7,7 @@ import {
     zIndex
 } from '@/tokens';
 import { GridType } from '@/ui/types';
-import { Grid, Grid3X3, Moon, Plus, Redo, Sun, Undo } from 'lucide-react';
+import { Activity, Grid, Grid3X3, Moon, Plus, Redo, Sun, Undo } from 'lucide-react';
 import React from 'react';
 
 interface HeaderProps {
@@ -21,6 +21,8 @@ interface HeaderProps {
   handleRedo: () => void;
   setIsNodePickerOpen: (isOpen: boolean) => void;
   setPickerCounts: (counts: Record<string, number>) => void;
+  showEngineStats: boolean;
+  setShowEngineStats: (show: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,7 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   handleUndo,
   handleRedo,
   setIsNodePickerOpen,
-  setPickerCounts
+  setPickerCounts,
+  showEngineStats,
+  setShowEngineStats
 }) => {
   // Token-based styling
   const headerBg = getSurface('panel', isDarkMode);
@@ -52,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
         zIndex: zIndex.header
       }}
       onMouseDown={e => e.stopPropagation()}
+      onWheel={e => e.stopPropagation()}
     >
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -118,6 +123,14 @@ export const Header: React.FC<HeaderProps> = ({
               style={{ borderColor: borderColor }}
             >
               {isDarkMode ? <Moon size={iconSizes.md} /> : <Sun size={iconSizes.md} />}
+            </button>
+            <button 
+              onClick={() => setShowEngineStats(!showEngineStats)} 
+              className={`p-2 rounded-lg border transition-colors ${showEngineStats ? activeClass : hoverClass}`}
+              style={{ borderColor: borderColor }}
+              title="Toggle Engine Stats"
+            >
+              <Activity size={iconSizes.md} />
             </button>
         </div>
     </div>

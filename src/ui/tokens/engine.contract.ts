@@ -6,22 +6,53 @@
  * The engine should use these types and accessors to configure UI components.
  */
 
-import { getSurface, getBorder, getPort, getWire, getGrid, getText, signalActive, neonPalette } from './colors';
-import { node, port, wire, canvas, panel, zIndex, icon } from './layout';
 import { duration, easing, spring } from './animation';
-import { spacing, semanticSpacing, nodeSpacing } from './spacing';
-import { breakpoints, canvasResponsive } from './responsive';
-import { 
-  QualityTier, 
-  qualityFeatures, 
-  lodThresholds, 
-  visualizerThrottle,
-  nodeRenderThresholds,
-  getQualityFeatures,
-  getRecommendedTier,
-  getVisualizerInterval,
-  getLodLevel
+import { getBorder, getGrid, getPort, getSurface, getText, getWire, neonPalette, signalActive } from './colors';
+import { canvas, icon, node, panel, port, wire, zIndex } from './layout';
+import {
+    QualityTier,
+    getLodLevel,
+    getQualityFeatures,
+    getRecommendedTier,
+    getVisualizerInterval,
+    lodThresholds,
+    nodeRenderThresholds,
+    qualityFeatures,
+    visualizerThrottle
 } from './performance';
+import { breakpoints, canvasResponsive } from './responsive';
+import { nodeSpacing, semanticSpacing, spacing } from './spacing';
+
+// =============================================================================
+// CONNECTION PROP NAME CONSTANTS
+// =============================================================================
+// CRITICAL: These are the standard prop names used across the engine.
+// Using these constants prevents mismatches between:
+// - Connection definitions (sourceProp/targetProp)
+// - nodeOutputs storage keys
+// - runtime.overrides keys
+// - resolveProperty lookups
+
+/**
+ * Standard property names for node connections and data flow.
+ * ALL code that creates connections or reads/writes node values MUST use these.
+ */
+export const CONNECTION_PROPS = {
+  /** Default output property - used by nodeOutputs[nodeId].value */
+  OUTPUT: 'value',
+  /** Default input property - writes to overrides[nodeId].value */
+  INPUT: 'value',
+  /** Alias for clarity in source context */
+  SOURCE_DEFAULT: 'value',
+  /** Alias for clarity in target context */
+  TARGET_DEFAULT: 'value',
+} as const;
+
+/** Helper to get default source prop */
+export const getDefaultSourceProp = () => CONNECTION_PROPS.OUTPUT;
+
+/** Helper to get default target prop */
+export const getDefaultTargetProp = () => CONNECTION_PROPS.INPUT;
 
 // =============================================================================
 // ENGINE PERFORMANCE HINTS INTERFACE
@@ -204,15 +235,9 @@ export const defaultPerformanceHints: EnginePerformanceHints = {
 
 /** Re-export performance utilities for engine use */
 export {
-  QualityTier,
-  qualityFeatures,
-  lodThresholds,
-  visualizerThrottle,
-  nodeRenderThresholds,
-  getQualityFeatures,
-  getRecommendedTier,
-  getVisualizerInterval,
-  getLodLevel,
+    QualityTier, getLodLevel, getQualityFeatures,
+    getRecommendedTier,
+    getVisualizerInterval, lodThresholds, nodeRenderThresholds, qualityFeatures, visualizerThrottle
 };
 
 // =============================================================================

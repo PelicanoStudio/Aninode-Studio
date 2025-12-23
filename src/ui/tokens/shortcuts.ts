@@ -107,12 +107,6 @@ export const editingShortcuts: Record<string, Shortcut> = {
     description: 'Delete Selected Nodes',
     category: 'editing',
   },
-  deleteAlt: {
-    key: 'Backspace',
-    modifiers: [],
-    description: 'Delete Selected Nodes (Alternative)',
-    category: 'editing',
-  },
 } as const;
 
 // =============================================================================

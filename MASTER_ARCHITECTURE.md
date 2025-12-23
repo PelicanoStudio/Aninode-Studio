@@ -686,7 +686,7 @@ window.AninodeAPI = {
 ```
 src/
 ├── core/                      # ALWAYS INCLUDED (~5KB)
-│   ├── engineStore.ts               # Valtio (nodes, targets, timeline)
+│   ├── store.ts               # Valtio (nodes, targets, timeline)
 │   ├── useNodeRegistration.ts
 │   ├── types.ts
 │   └── ModifierChain.ts

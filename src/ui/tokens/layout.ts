@@ -62,13 +62,25 @@ export const canvas = {
   /** Grid snap size */
   snapSize: 20,
   /** Minimum zoom level */
-  zoomMin: 0.2,
+  zoomMin: 0.1, // Changed from 0.2 for 50% more zoom-out
   /** Maximum zoom level */
   zoomMax: 3,
   /** Focus view padding */
   focusPadding: 100,
   /** Zoom sensitivity for wheel events */
   zoomSensitivity: 0.001,
+} as const;
+
+// =============================================================================
+// INTERACTION THRESHOLDS
+// =============================================================================
+export const interaction = {
+  /** Minimum drag distance (px) before drag is activated - prevents accidental drags on click */
+  dragThreshold: 8,
+  /** Distance threshold for detecting click vs pan on canvas */
+  clickThreshold: 5,
+  /** Box selection minimum size to register */
+  boxSelectMinSize: 10,
 } as const;
 
 // =============================================================================

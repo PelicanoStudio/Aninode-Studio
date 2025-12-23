@@ -1,15 +1,20 @@
 
 import {
-  getBorder,
-  getSurface,
-  iconSizes,
-  panelLayout,
-  signalActive,
-  zIndex
+    getBorder,
+    getSurface,
+    iconSizes,
+    panelLayout,
+    signalActive,
+    WaveformType,
+    zIndex
 } from '@/tokens';
 import { NodeData, NodeType } from '@/ui/types';
-import { Link as LinkIcon, Sliders, X } from 'lucide-react';
-import React from 'react';
+import { resolveProperty } from '@core/resolveProperty';
+import { engineStore } from '@core/store';
+import { FastForward, Link as LinkIcon, Power, Sliders, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useSnapshot } from 'valtio';
+import { WaveformVisualizer } from './nodes/WaveformVisualizer';
 import { Input } from './ui/Input';
 
 interface SidePanelProps {
@@ -20,13 +25,59 @@ interface SidePanelProps {
   isDarkMode: boolean; 
   boundProps: Record<string, any>;
   onContextMenu: (menu: { x: number, y: number, propKey: string, nodeId: string } | null) => void;
+  onToggleEnabled?: (id: string, enabled: boolean) => void;
+  onToggleBypassed?: (id: string, bypassed: boolean) => void;
 }
 
-export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onUpdate, onBindProp: _onBindProp, isDarkMode, boundProps, onContextMenu }) => {
+export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onUpdate, onBindProp: _onBindProp, isDarkMode, boundProps, onContextMenu, onToggleEnabled, onToggleBypassed }) => {
 
   if (!selectedNode) return null;
 
+  // Subscribe to runtime.overrides for reactive updates when connections change values
+  const snap = useSnapshot(engineStore);
+  const _overrides = snap.runtime.overrides[selectedNode.id]; // Trigger reactivity
+  
+  // Force re-render at a moderate rate for smooth value display when receiving connections
+  const [_tick, setTick] = useState(0);
+  useEffect(() => {
+    let animationId: number;
+    let lastUpdate = 0;
+    const update = (time: number) => {
+      // Throttle to ~20fps (every 50ms) to reduce render load while keeping UI responsive
+      if (time - lastUpdate > 50) {
+        setTick(t => t + 1);
+        lastUpdate = time;
+      }
+      animationId = requestAnimationFrame(update);
+    };
+    animationId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(animationId);
+  }, [selectedNode.id]);
+
+  /**
+   * Check if a property has an active override from a connection
+   */
+  const hasOverride = (key: string): boolean => {
+    const overrides = engineStore.runtime.overrides[selectedNode.id];
+    return overrides !== undefined && key in overrides;
+  };
+
+  /**
+   * Get the resolved value for a property using 3-Level Hierarchy:
+   * Override (from connection) > baseProps (user's manual value)
+   */
+  const getValue = (key: string, defaultVal: any) => {
+    return resolveProperty(selectedNode.id, key, defaultVal);
+  };
+
   const handleChange = (key: string, value: any) => {
+    // IMPORTANT: Don't update baseProps if there's an active override from a connection
+    // This prevents the override value from being written to baseProps and corrupting the original
+    if (hasOverride(key)) {
+      console.log(`[SidePanel] Ignoring change to "${key}" - has active override from connection`);
+      return;
+    }
+    
     onUpdate(selectedNode.id, {
         config: {
             ...selectedNode.config,
@@ -61,7 +112,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
 
   return (
     <div 
-        className="fixed right-4 top-4 bottom-4 backdrop-blur-xl border rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
+        className="fixed right-4 top-20 bottom-4 backdrop-blur-xl border rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
         style={{
           width: panelLayout.sidePanelWidth,
           backgroundColor: panelBg,
@@ -72,6 +123,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
         onMouseUp={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onContextMenu(null); }}
         onContextMenu={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
     >
       {/* Header */}
       <div 
@@ -94,9 +146,33 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                 <p className="text-xs text-neutral-500 font-mono opacity-50">ID: {selectedNode.id.slice(-6)}</p>
             </div>
         </div>
-        <button onClick={onClose} className="text-neutral-500 hover:text-opacity-80 transition-colors">
-          <X size={iconSizes.lg} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Enable/Disable Toggle */}
+          {onToggleEnabled && (
+            <button
+              title={selectedNode.config?.enabled !== false ? 'Disable node' : 'Enable node'}
+              className={`p-2 rounded-lg border transition-colors ${selectedNode.config?.enabled !== false ? 'text-green-500 hover:bg-green-500/20' : 'text-neutral-500 hover:bg-neutral-500/20'}`}
+              style={{ borderColor: borderColor }}
+              onClick={() => onToggleEnabled(selectedNode.id, selectedNode.config?.enabled === false)}
+            >
+              <Power size={iconSizes.md} />
+            </button>
+          )}
+          {/* Bypass Toggle */}
+          {onToggleBypassed && (
+            <button
+              title={selectedNode.config?.bypassed ? 'Enable processing' : 'Bypass node'}
+              className={`p-2 rounded-lg border transition-colors ${selectedNode.config?.bypassed ? 'text-yellow-500 hover:bg-yellow-500/20' : 'text-neutral-500 hover:bg-neutral-500/20'}`}
+              style={{ borderColor: borderColor }}
+              onClick={() => onToggleBypassed(selectedNode.id, !selectedNode.config?.bypassed)}
+            >
+              <FastForward size={iconSizes.md} />
+            </button>
+          )}
+          <button onClick={onClose} className="text-neutral-500 hover:text-opacity-80 transition-colors">
+            <X size={iconSizes.lg} />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -119,10 +195,23 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
             {/* OSCILLATOR (LFO) */}
             {selectedNode.type === NodeType.OSCILLATOR && (
                 <>
+                    {/* Waveform Visualizer */}
+                    <div className="p-2">
+                        <WaveformVisualizer
+                            waveform={getValue('waveform', 'sine') as WaveformType}
+                            frequency={getValue('frequency', 1)}
+                            amplitude={getValue('amplitude', 1)}
+                            phase={getValue('phase', 0)}
+                            min={getValue('min', 0)}
+                            max={getValue('max', 100)}
+                            isDarkMode={isDarkMode}
+                            enabled={getValue('enabled', true) !== false}
+                        />
+                    </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'waveform')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                         {renderLabel('Waveform', 'waveform')}
                         <select 
-                            value={selectedNode.config.waveform || 'sine'} 
+                            value={getValue('waveform', 'sine')} 
                             onChange={(e) => handleChange('waveform', e.target.value)}
                             className={`w-full px-3 py-2 rounded border text-sm font-mono ${isDarkMode ? 'bg-black border-neutral-800 text-white' : 'bg-white border-neutral-200 text-black'}`}
                         >
@@ -130,30 +219,31 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                             <option value="triangle">Triangle</option>
                             <option value="square">Square (On/Off)</option>
                             <option value="sawtooth">Sawtooth</option>
+                            <option value="inverted-sawtooth">Inv. Sawtooth</option>
                             <option value="noise">Noise (Random)</option>
                         </select>
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'frequency')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                         {renderLabel('Frequency (Hz)', 'frequency')}
-                        <Input type="number" step="0.1" min="0.01" value={selectedNode.config.frequency || 1} onChange={(e) => handleChange('frequency', parseFloat(e.target.value))} />
+                        <Input type="number" step="0.1" min="0.01" value={getValue('frequency', 1)} onChange={(e) => handleChange('frequency', parseFloat(e.target.value))} />
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'amplitude')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                         {renderLabel('Amplitude', 'amplitude')}
-                        <Input type="number" step="0.1" min="0" max="2" value={selectedNode.config.amplitude || 1} onChange={(e) => handleChange('amplitude', parseFloat(e.target.value))} />
+                        <Input type="number" step="0.1" min="0" max="2" value={getValue('amplitude', 1)} onChange={(e) => handleChange('amplitude', parseFloat(e.target.value))} />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <div onContextMenu={(e) => handleContextMenu(e, 'min')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                             {renderLabel('Min Value', 'min')}
-                            <Input type="number" step="0.1" value={selectedNode.config.min ?? 0} onChange={(e) => handleChange('min', parseFloat(e.target.value))} />
+                            <Input type="number" step="0.1" value={getValue('min', 0)} onChange={(e) => handleChange('min', parseFloat(e.target.value))} />
                         </div>
                         <div onContextMenu={(e) => handleContextMenu(e, 'max')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                             {renderLabel('Max Value', 'max')}
-                            <Input type="number" step="0.1" value={selectedNode.config.max ?? 1} onChange={(e) => handleChange('max', parseFloat(e.target.value))} />
+                            <Input type="number" step="0.1" value={getValue('max', 100)} onChange={(e) => handleChange('max', parseFloat(e.target.value))} />
                         </div>
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'phase')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                         {renderLabel('Phase Offset', 'phase')}
-                        <Input type="number" step="0.1" value={selectedNode.config.phase || 0} onChange={(e) => handleChange('phase', parseFloat(e.target.value))} />
+                        <Input type="number" step="0.1" value={getValue('phase', 0)} onChange={(e) => handleChange('phase', parseFloat(e.target.value))} />
                     </div>
                 </>
             )}
@@ -163,33 +253,33 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                  <>
                     <div onContextMenu={(e) => handleContextMenu(e, 'scale')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                          {renderLabel('Scale (%)', 'scale')}
-                        <Input type="number" step="1" min="0" max="500" value={selectedNode.config.scale ?? 100} onChange={(e) => handleChange('scale', parseInt(e.target.value))} />
+                        <Input type="number" step="1" min="0" max="500" value={getValue('scale', 100)} onChange={(e) => handleChange('scale', parseInt(e.target.value))} />
                         <input 
                           type="range" 
                           min="0" max="200" 
-                          value={selectedNode.config.scale ?? 100} 
+                          value={getValue('scale', 100)} 
                           onChange={(e) => handleChange('scale', parseInt(e.target.value))}
                           className="w-full mt-2 accent-red-500" 
                         />
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'rotation')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                          {renderLabel('Rotation (°)', 'rotation')}
-                        <Input type="number" step="1" min="-360" max="360" value={selectedNode.config.rotation ?? 0} onChange={(e) => handleChange('rotation', parseInt(e.target.value))} />
+                        <Input type="number" step="1" min="-360" max="360" value={getValue('rotation', 0)} onChange={(e) => handleChange('rotation', parseInt(e.target.value))} />
                         <input 
                           type="range" 
                           min="-180" max="180" 
-                          value={selectedNode.config.rotation ?? 0} 
+                          value={getValue('rotation', 0)} 
                           onChange={(e) => handleChange('rotation', parseInt(e.target.value))}
                           className="w-full mt-2 accent-red-500" 
                         />
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'opacity')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                          {renderLabel('Opacity (%)', 'opacity')}
-                        <Input type="number" step="1" min="0" max="100" value={selectedNode.config.opacity ?? 100} onChange={(e) => handleChange('opacity', parseInt(e.target.value))} />
+                        <Input type="number" step="1" min="0" max="100" value={getValue('opacity', 100)} onChange={(e) => handleChange('opacity', parseInt(e.target.value))} />
                         <input 
                           type="range" 
                           min="0" max="100" 
-                          value={selectedNode.config.opacity ?? 100} 
+                          value={getValue('opacity', 100)} 
                           onChange={(e) => handleChange('opacity', parseInt(e.target.value))}
                           className="w-full mt-2 accent-red-500" 
                         />
@@ -197,11 +287,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                     <div className="grid grid-cols-2 gap-2">
                         <div onContextMenu={(e) => handleContextMenu(e, 'offsetX')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                             {renderLabel('Offset X', 'offsetX')}
-                            <Input type="number" step="1" value={selectedNode.config.offsetX ?? 0} onChange={(e) => handleChange('offsetX', parseInt(e.target.value))} />
+                            <Input type="number" step="1" value={getValue('offsetX', 0)} onChange={(e) => handleChange('offsetX', parseInt(e.target.value))} />
                         </div>
                         <div onContextMenu={(e) => handleContextMenu(e, 'offsetY')} className="p-2 hover:bg-white/5 rounded cursor-context-menu transition-colors">
                             {renderLabel('Offset Y', 'offsetY')}
-                            <Input type="number" step="1" value={selectedNode.config.offsetY ?? 0} onChange={(e) => handleChange('offsetY', parseInt(e.target.value))} />
+                            <Input type="number" step="1" value={getValue('offsetY', 0)} onChange={(e) => handleChange('offsetY', parseInt(e.target.value))} />
                         </div>
                     </div>
                  </>
@@ -227,31 +317,31 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
                         <div className="flex items-center gap-3">
                             <input 
                               type="range" 
-                              min={selectedNode.config.min || 0} 
-                              max={selectedNode.config.max || 100}
-                              step={selectedNode.config.step || 1}
-                              value={selectedNode.config.value ?? 50} 
+                              min={getValue('min', 0)} 
+                              max={getValue('max', 100)}
+                              step={getValue('step', 1)}
+                              value={getValue('value', 50)} 
                               onChange={(e) => handleChange('value', parseFloat(e.target.value))}
                               className="flex-1 accent-red-500" 
                             />
                             <span className="text-sm font-mono w-12 text-right" style={{ color: accentColor }}>
-                                {selectedNode.config.value ?? 50}
+                                {getValue('value', 50)}
                             </span>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <div onContextMenu={(e) => handleContextMenu(e, 'min')} className="hover:bg-white/5 rounded p-2 cursor-context-menu transition-colors">
                              {renderLabel('Min', 'min')}
-                             <Input type="number" value={selectedNode.config.min ?? 0} onChange={(e) => handleChange('min', parseFloat(e.target.value))} />
+                             <Input type="number" value={getValue('min', 0)} onChange={(e) => handleChange('min', parseFloat(e.target.value))} />
                         </div>
                         <div onContextMenu={(e) => handleContextMenu(e, 'max')} className="hover:bg-white/5 rounded p-2 cursor-context-menu transition-colors">
                              {renderLabel('Max', 'max')}
-                             <Input type="number" value={selectedNode.config.max ?? 100} onChange={(e) => handleChange('max', parseFloat(e.target.value))} />
+                             <Input type="number" value={getValue('max', 100)} onChange={(e) => handleChange('max', parseFloat(e.target.value))} />
                         </div>
                     </div>
                     <div onContextMenu={(e) => handleContextMenu(e, 'step')} className="hover:bg-white/5 rounded p-2 cursor-context-menu transition-colors">
                          {renderLabel('Step', 'step')}
-                         <Input type="number" value={selectedNode.config.step || 1} onChange={(e) => handleChange('step', parseFloat(e.target.value))} />
+                         <Input type="number" value={getValue('step', 1)} onChange={(e) => handleChange('step', parseFloat(e.target.value))} />
                     </div>
                 </>
             )}
@@ -260,7 +350,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ selectedNode, onClose, onU
             {selectedNode.type === NodeType.NUMBER && (
                  <div onContextMenu={(e) => handleContextMenu(e, 'value')} className="p-2 hover:bg-white/5 rounded cursor-context-menu relative group transition-colors">
                      {renderLabel('Current Value', 'value')}
-                     <Input type="number" value={selectedNode.config.value || 0} onChange={(e) => handleChange('value', parseFloat(e.target.value))} />
+                     <Input type="number" value={getValue('value', 0)} onChange={(e) => handleChange('value', parseFloat(e.target.value))} />
                  </div>
             )}
 

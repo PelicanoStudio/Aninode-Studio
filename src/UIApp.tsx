@@ -14,6 +14,7 @@ import { useSnapshot } from 'valtio';
 // UI Components
 import { CanvasBackground } from '@/ui/components/canvas/CanvasBackground';
 import { ConnectionLine } from '@/ui/components/canvas/ConnectionLine';
+import { EngineStats } from '@/ui/components/EngineStats';
 import { BaseNode, getTypeLabel } from '@/ui/components/nodes/BaseNode';
 import { NodeContent } from '@/ui/components/nodes/NodeContent';
 import { SidePanel } from '@/ui/components/SidePanel';
@@ -27,7 +28,8 @@ import { getMenuPosition } from '@/ui/utils/menuPosition';
 import { Link as LinkIcon, Unlink } from 'lucide-react';
 
 // Tokens
-import { canvasLayout, getWire, neonPalette, nodeLayout, portLayout, zIndex } from '@/tokens';
+import { canvasLayout, getWire, interaction, neonPalette, nodeLayout, portLayout, signalActive, suggestConnectionTypeSemantic, zIndex } from '@/tokens';
+import { getDefaultPorts } from '@/ui/tokens/ports';
 
 const NEON_PALETTE = neonPalette;
 const SNAP_SIZE = canvasLayout.snapSize;
@@ -59,11 +61,20 @@ export default function UIApp() {
 
   // === LOCAL STATE (Ephemeral UI interactions) ===
   const containerRef = useRef<HTMLDivElement>(null);
+  // Active drag state - only set after threshold exceeded
   const [dragState, setDragState] = useState<{ 
     nodeIds: string[], 
     startPositions: Record<string, {x: number, y: number}>,
     mouseStartX: number, 
     mouseStartY: number 
+  } | null>(null);
+  // Pending drag - captures mouse down, converts to dragState after threshold
+  const [pendingDrag, setPendingDrag] = useState<{
+    nodeIds: string[],
+    startPositions: Record<string, {x: number, y: number}>,
+    mouseStartX: number,
+    mouseStartY: number,
+    altKey: boolean, // Capture alt key at mouse down for delayed duplication
   } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, mouseX: 0, mouseY: 0 });
@@ -71,6 +82,13 @@ export default function UIApp() {
   const [propertyTeleportBuffer, setPropertyTeleportBuffer] = useState<{ nodeId: string, propKey: string } | null>(null);
   const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number, y: number, propKey: string, nodeId: string } | null>(null);
   const [pickerCounts, setPickerCounts] = useState<Record<string, number>>({});
+  // Box selection state (right-click drag)
+  const [boxSelect, setBoxSelect] = useState<{
+    startX: number, // Screen coordinates
+    startY: number,
+    currentX: number,
+    currentY: number,
+  } | null>(null);
 
   // Pinch zoom hook
   usePinchZoom(viewport, (newViewport) => storeActions.setViewport(newViewport), containerRef);
@@ -85,21 +103,38 @@ export default function UIApp() {
     return node ? node.position : { x: 0, y: 0 };
   }, [nodes]);
 
-  // Node color chains
+  // Node color chains - assign unique colors to ALL chain heads (nodes without incoming connections)
   const nodeColors = useMemo(() => {
     const map = new Map<string, string>();
     const visited = new Set<string>();
+    
+    // Traverse downstream from a root node, propagating color
     const traverse = (nodeId: string, color: string) => {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
       map.set(nodeId, color);
       connections.filter(c => c.source === nodeId).map(c => c.target).forEach(childId => traverse(childId, color));
     };
+    
+    // Find all chain heads: nodes that have NO incoming connections
+    const nodesWithIncoming = new Set(connections.map(c => c.target));
+    const chainHeads = nodes.filter(n => !nodesWithIncoming.has(n.id));
+    
+    // Assign colors to chain heads and traverse their chains
     let colorIndex = 0;
-    nodes.filter(n => n.type === NodeType.PICKER).forEach(picker => {
-      traverse(picker.id, NEON_PALETTE[colorIndex % NEON_PALETTE.length]);
+    chainHeads.forEach(head => {
+      traverse(head.id, NEON_PALETTE[colorIndex % NEON_PALETTE.length]);
       colorIndex++;
     });
+    
+    // Any remaining unvisited nodes (isolated or in cycles) get their own color
+    nodes.forEach(n => {
+      if (!map.has(n.id)) {
+        map.set(n.id, NEON_PALETTE[colorIndex % NEON_PALETTE.length]);
+        colorIndex++;
+      }
+    });
+    
     return map;
   }, [nodes, connections]);
 
@@ -118,6 +153,15 @@ export default function UIApp() {
     connections.filter(c => c.source === primaryId).forEach(c => findChildren(c.target));
     return chain;
   }, [snap.ui.selectedNodeIds, connections]);
+
+  // === CONNECTION DATA SYNC ===
+  // REMOVED: Previous implementation directly mutated baseProps with connection values,
+  // which corrupted the original values and prevented proper reversion.
+  // Connection data flow is now handled correctly by:
+  // 1. AnimationEngine.processConnections() writes to runtime.overrides
+  // 2. resolveProperty() reads override > baseProps
+  // 3. SidePanel uses getValue() to display resolved values
+  // 4. When connection is disabled, override is cleared and baseProps is preserved
 
   // === ACTIONS (All mutations go through storeActions) ===
   
@@ -233,8 +277,8 @@ export default function UIApp() {
         setPickerCounts({});
       }
 
-      // Delete
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Delete (only Delete key, not Backspace - conflicts with text input)
+      if (e.key === 'Delete') {
         snap.ui.selectedNodeIds.forEach(id => storeActions.removeNode(id));
         storeActions.clearSelection();
       }
@@ -306,12 +350,27 @@ export default function UIApp() {
   };
 
   const createConnection = (sourceId: string, targetId: string, type: ConnectionType) => {
+    // Look up target node's type to find its default input port
+    const targetNode = engineStore.project.nodes[targetId];
+    const targetNodeType = targetNode?.type as NodeType | undefined;
+    
+    // Get the target's default input port (e.g., OSCILLATOR -> 'frequency', TRANSFORM -> 'value')
+    let targetProp = 'value'; // Fallback
+    if (targetNodeType) {
+      const targetPorts = getDefaultPorts(targetNodeType);
+      const defaultInput = targetPorts.inputs.find(p => p.isDefault);
+      if (defaultInput) {
+        targetProp = defaultInput.key;
+      }
+    }
+    
     const connDef: ConnectionDefinition = {
       id: `c_${Date.now()}`,
       sourceNodeId: sourceId,
-      sourceProp: 'output',
+      sourceProp: 'value', // All sources output on 'value' (from nodeOutputs)
       targetNodeId: targetId,
-      targetProp: 'input',
+      targetProp: targetProp, // Now uses target's default input port!
+      connectionType: type,
     };
     storeActions.addConnection(connDef);
   };
@@ -321,15 +380,31 @@ export default function UIApp() {
     if (action === 'SEND') {
       setPropertyTeleportBuffer({ nodeId, propKey });
     } else if (action === 'RECEIVE' && propertyTeleportBuffer) {
-      // Create telepathic connection
+      // Create telepathic connection with STRAIGHT type
       const connDef: ConnectionDefinition = {
         id: `c_tele_${Date.now()}`,
         sourceNodeId: propertyTeleportBuffer.nodeId,
         sourceProp: propertyTeleportBuffer.propKey,
         targetNodeId: nodeId,
         targetProp: propKey,
+        connectionType: 'STRAIGHT', // Telepathic connections use STRAIGHT (dashed arrow)
       };
       storeActions.addConnection(connDef);
+      
+      // Mark the target property as bound in the node's boundProps
+      const targetNode = snap.project.nodes[nodeId];
+      if (targetNode) {
+        storeActions.updateNodeProps(nodeId, {
+          boundProps: {
+            ...targetNode.baseProps.boundProps,
+            [propKey]: {
+              sourceNodeId: propertyTeleportBuffer.nodeId,
+              sourceProp: propertyTeleportBuffer.propKey,
+            }
+          }
+        });
+      }
+      
       setPropertyTeleportBuffer(null);
     } else if (action === 'UNBIND') {
       // Find and remove telepathic connection
@@ -338,6 +413,14 @@ export default function UIApp() {
           storeActions.removeConnection(conn.id);
         }
       });
+      
+      // Remove from boundProps
+      const targetNode = snap.project.nodes[nodeId];
+      if (targetNode?.baseProps.boundProps?.[propKey]) {
+        const newBoundProps = { ...targetNode.baseProps.boundProps };
+        delete newBoundProps[propKey];
+        storeActions.updateNodeProps(nodeId, { boundProps: newBoundProps });
+      }
     }
   };
 
@@ -357,7 +440,92 @@ export default function UIApp() {
             zoom: viewport.zoom
           });
         }
-        // DRAGGING NODES
+        
+        // CHECK PENDING DRAG THRESHOLD
+        // Only convert to real drag after mouse moves beyond threshold
+        if (pendingDrag && !dragState) {
+          const distance = Math.sqrt(
+            Math.pow(e.clientX - pendingDrag.mouseStartX, 2) +
+            Math.pow(e.clientY - pendingDrag.mouseStartY, 2)
+          );
+          
+          if (distance >= interaction.dragThreshold) {
+            // Threshold exceeded - now we know it's a real drag, not a click
+            
+            // If alt was held at mouse down, duplicate nodes now
+            if (pendingDrag.altKey && pendingDrag.nodeIds.length > 0) {
+              const oldToNewIdMap: Record<string, string> = {};
+              const duplicatedIds: string[] = [];
+              
+              pendingDrag.nodeIds.forEach(nodeId => {
+                const n = nodes.find(node => node.id === nodeId);
+                if (!n) return;
+                
+                const typePrefix = n.type.slice(0, 3).toLowerCase();
+                const newId = `${typePrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                oldToNewIdMap[nodeId] = newId;
+                duplicatedIds.push(newId);
+                
+                const newNodeDef: NodeDefinition = {
+                  id: newId,
+                  type: n.type,
+                  name: `${n.label} (copy)`,
+                  position: { x: n.position.x, y: n.position.y },
+                  baseProps: {
+                    ...n.config,
+                    boundProps: {},
+                    dimensions: n.dimensions,
+                    collapsed: n.collapsed,
+                  },
+                  timelineConfig: { mode: 'linked', offset: 0, keyframes: {} },
+                };
+                storeActions.addNode(newNodeDef);
+              });
+              
+              // Duplicate connections between selected nodes
+              Object.values(snap.project.connections).forEach(conn => {
+                if (pendingDrag.nodeIds.includes(conn.sourceNodeId) && 
+                    pendingDrag.nodeIds.includes(conn.targetNodeId)) {
+                  const newConn: ConnectionDefinition = {
+                    id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    sourceNodeId: oldToNewIdMap[conn.sourceNodeId],
+                    sourceProp: conn.sourceProp,
+                    targetNodeId: oldToNewIdMap[conn.targetNodeId],
+                    targetProp: conn.targetProp,
+                    connectionType: conn.connectionType,
+                  };
+                  storeActions.addConnection(newConn);
+                }
+              });
+              
+              // Switch to dragging the duplicates
+              const newStartPositions: Record<string, {x: number, y: number}> = {};
+              duplicatedIds.forEach(id => {
+                const stored = engineStore.project.nodes[id];
+                if (stored) newStartPositions[id] = { x: stored.position.x, y: stored.position.y };
+              });
+              
+              storeActions.selectMultiple(duplicatedIds);
+              setDragState({
+                nodeIds: duplicatedIds,
+                startPositions: newStartPositions,
+                mouseStartX: pendingDrag.mouseStartX,
+                mouseStartY: pendingDrag.mouseStartY,
+              });
+            } else {
+              // Normal drag (no alt key)
+              setDragState({
+                nodeIds: pendingDrag.nodeIds,
+                startPositions: pendingDrag.startPositions,
+                mouseStartX: pendingDrag.mouseStartX,
+                mouseStartY: pendingDrag.mouseStartY,
+              });
+            }
+            setPendingDrag(null);
+          }
+        }
+        
+        // DRAGGING NODES (only when dragState is active)
         if (dragState) {
           const dx = (e.clientX - dragState.mouseStartX) / viewport.zoom;
           const dy = (e.clientY - dragState.mouseStartY) / viewport.zoom;
@@ -374,13 +542,21 @@ export default function UIApp() {
           const worldPos = screenToWorld(e.clientX, e.clientY);
           setTempWire(prev => prev ? { ...prev, mouseX: worldPos.x, mouseY: worldPos.y } : null);
         }
+        // BOX SELECTION - update current position as mouse moves
+        if (boxSelect) {
+          setBoxSelect(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+        }
       }}
       onMouseUp={(e) => {
         if (isPanning) {
           const dist = Math.sqrt(Math.pow(e.clientX - panStartRef.current.mouseX, 2) + Math.pow(e.clientY - panStartRef.current.mouseY, 2));
-          if (dist < 5) storeActions.clearSelection();
+          if (dist < interaction.clickThreshold) storeActions.clearSelection();
         }
         setIsPanning(false);
+        
+        // Clear pending drag - if we get here without converting to dragState,
+        // the mouse was released before threshold (was a click, not a drag)
+        setPendingDrag(null);
         
         if (dragState) {
           // Snap nodes to grid
@@ -398,6 +574,44 @@ export default function UIApp() {
           setDragState(null);
         }
         if (tempWire && !tempWire.isHot) setTempWire(null);
+        
+        // BOX SELECTION - finalize and select intersecting nodes
+        if (boxSelect) {
+          const boxWidth = Math.abs(boxSelect.currentX - boxSelect.startX);
+          const boxHeight = Math.abs(boxSelect.currentY - boxSelect.startY);
+          
+          // Only select if box is large enough
+          if (boxWidth >= interaction.boxSelectMinSize || boxHeight >= interaction.boxSelectMinSize) {
+            // Convert screen coordinates to world coordinates
+            const boxLeft = Math.min(boxSelect.startX, boxSelect.currentX);
+            const boxTop = Math.min(boxSelect.startY, boxSelect.currentY);
+            const boxRight = Math.max(boxSelect.startX, boxSelect.currentX);
+            const boxBottom = Math.max(boxSelect.startY, boxSelect.currentY);
+            
+            // Find nodes that intersect with the box
+            const selectedNodeIds: string[] = [];
+            nodes.forEach(node => {
+              // Convert node world position to screen position
+              const nodeScreenX = node.position.x * viewport.zoom + viewport.x;
+              const nodeScreenY = node.position.y * viewport.zoom + viewport.y;
+              const nodeWidth = (node.dimensions?.width || nodeLayout.width) * viewport.zoom;
+              const nodeHeight = (node.dimensions?.height || nodeLayout.defaultHeight) * viewport.zoom;
+              
+              // Check intersection
+              if (nodeScreenX < boxRight && 
+                  nodeScreenX + nodeWidth > boxLeft &&
+                  nodeScreenY < boxBottom &&
+                  nodeScreenY + nodeHeight > boxTop) {
+                selectedNodeIds.push(node.id);
+              }
+            });
+            
+            if (selectedNodeIds.length > 0) {
+              storeActions.selectMultiple(selectedNodeIds);
+            }
+          }
+          setBoxSelect(null);
+        }
       }}
       onWheel={(e) => {
         if (isNodePickerOpen) return;
@@ -413,9 +627,29 @@ export default function UIApp() {
       }}
       onMouseDown={(e) => {
         setPropertyContextMenu(null);
-        if (!dragState) {
+        
+        // Right-click (button 2) starts box selection
+        if (e.button === 2) {
+          e.preventDefault();
+          setBoxSelect({
+            startX: e.clientX,
+            startY: e.clientY,
+            currentX: e.clientX,
+            currentY: e.clientY,
+          });
+          return;
+        }
+        
+        // Left-click starts panning if not dragging
+        if (!dragState && !pendingDrag) {
           setIsPanning(true); 
           panStartRef.current = { x: viewport.x, y: viewport.y, mouseX: e.clientX, mouseY: e.clientY }; 
+        }
+      }}
+      onContextMenu={(e) => {
+        // Prevent context menu if box selecting
+        if (boxSelect) {
+          e.preventDefault();
         }
       }}
     >
@@ -467,6 +701,8 @@ export default function UIApp() {
             isHotConnectionSource={tempWire?.startId === node.id}
             onSelect={() => {}}
             onToggleCollapse={(id) => storeActions.updateNodeProps(id, { collapsed: !nodes.find(n => n.id === id)?.collapsed })}
+            onToggleEnabled={(id, enabled) => storeActions.updateNodeProps(id, { enabled })}
+            onToggleBypassed={(id, bypassed) => storeActions.updateNodeProps(id, { bypassed })}
             onResize={(id, width, height, x, y) => {
               storeActions.updateNodeProps(id, { dimensions: { width, height } });
               if (x !== undefined && y !== undefined) {
@@ -480,6 +716,7 @@ export default function UIApp() {
             onNodeDown={(e) => { 
               e.stopPropagation();
               
+              // Handle selection (shift for multi-select)
               const currentSelected = [...snap.ui.selectedNodeIds];
               let newSelected: string[];
               
@@ -496,15 +733,25 @@ export default function UIApp() {
                   newSelected = currentSelected;
                 }
               }
+              
               storeActions.selectMultiple(newSelected);
 
-              // Start dragging
+              // Capture start positions for potential drag
               const startPositions: Record<string, {x: number, y: number}> = {};
               newSelected.forEach(id => {
-                const n = nodes.find(node => node.id === id);
-                if (n) startPositions[id] = { x: n.position.x, y: n.position.y };
+                const stored = engineStore.project.nodes[id];
+                if (stored) startPositions[id] = { x: stored.position.x, y: stored.position.y };
               });
-              setDragState({ nodeIds: newSelected, startPositions, mouseStartX: e.clientX, mouseStartY: e.clientY });
+              
+              // Set pending drag - will only become real drag after threshold exceeded
+              // Alt key is captured here for deferred duplication
+              setPendingDrag({ 
+                nodeIds: newSelected, 
+                startPositions, 
+                mouseStartX: e.clientX, 
+                mouseStartY: e.clientY,
+                altKey: e.altKey, // Capture alt state for deferred alt+copy
+              });
             }}
           >
             <NodeContent 
@@ -529,6 +776,8 @@ export default function UIApp() {
         isDarkMode={isDarkMode}
         boundProps={selectedIds.size === 1 ? nodes.find(n => n.id === Array.from(selectedIds)[0])?.boundProps || {} : {}}
         onContextMenu={(menu) => setPropertyContextMenu(menu)}
+        onToggleEnabled={(id, enabled) => storeActions.updateNodeProps(id, { enabled })}
+        onToggleBypassed={(id, bypassed) => storeActions.updateNodeProps(id, { bypassed })}
       />
 
       {/* UI HEADER */}
@@ -543,10 +792,27 @@ export default function UIApp() {
         handleRedo={storeActions.redo}
         setIsNodePickerOpen={storeActions.setNodePickerOpen}
         setPickerCounts={setPickerCounts}
+        showEngineStats={snap.ui.showEngineStats}
+        setShowEngineStats={storeActions.setShowEngineStats}
       />
 
       {/* COMMAND LEGEND */}
       <ShortcutsPanel isDarkMode={isDarkMode} />
+
+      {/* BOX SELECTION RECTANGLE */}
+      {boxSelect && (
+        <div
+          className="fixed pointer-events-none border-2 border-dashed z-50 bg-opacity-10"
+          style={{
+            left: Math.min(boxSelect.startX, boxSelect.currentX),
+            top: Math.min(boxSelect.startY, boxSelect.currentY),
+            width: Math.abs(boxSelect.currentX - boxSelect.startX),
+            height: Math.abs(boxSelect.currentY - boxSelect.startY),
+            borderColor: signalActive,
+            backgroundColor: `${signalActive}20`, // 20 = 12% opacity
+          }}
+        />
+      )}
 
       {/* NODE PICKER MODAL */}
       <NodePicker 
@@ -593,23 +859,18 @@ export default function UIApp() {
         </div>
       )}
 
-      {activeMenu === 'CONNECTION' && menuData && (
-        <div 
-          className="fixed w-48 bg-black border border-neutral-800 rounded-lg shadow-xl" 
-          style={{ left: menuData.x, top: menuData.y, zIndex: zIndex.contextMenu }} 
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <div className="px-4 py-2 text-xs font-bold text-neutral-500 border-b border-neutral-800">Connection Type</div>
-          {Object.values(ConnectionType).map(type => (
-            <button key={type} className="block w-full text-left px-4 py-2 text-xs text-white hover:bg-white/10" onClick={() => {
-              createConnection(menuData.source, menuData.target, type);
-              storeActions.setActiveMenu(null);
-            }}>
-              {type}
-            </button>
-          ))}
-        </div>
-      )}
+      {activeMenu === 'CONNECTION' && menuData && (() => {
+        // Auto-assign connection type based on source node semantics
+        const sourceNode = nodes.find(n => n.id === menuData.source);
+        const autoType = sourceNode 
+          ? suggestConnectionTypeSemantic(sourceNode.type, 'value')
+          : ConnectionType.BEZIER;
+        
+        // Create connection immediately with auto-assigned type
+        createConnection(menuData.source, menuData.target, autoType);
+        storeActions.setActiveMenu(null);
+        return null; // Don't render menu
+      })()}
 
       {activeMenu === 'DISCONNECT' && menuData && (
         <div 
@@ -667,6 +928,12 @@ export default function UIApp() {
           </div>
         );
       })()}
+      
+      {/* Debug Stats Overlay */}
+      <EngineStats 
+        visible={snap.ui.showEngineStats} 
+        onClose={() => storeActions.setShowEngineStats(false)} 
+      />
     </div>
   );
 }

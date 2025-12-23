@@ -26,7 +26,7 @@ const displayShortcuts = [
 ] as const;
 
 export const ShortcutsPanel: React.FC<ShortcutsPanelProps> = ({ isDarkMode }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
   const panelBg = getSurface('overlay', isDarkMode);
   const borderColor = getBorder('default', isDarkMode);
@@ -42,6 +42,8 @@ export const ShortcutsPanel: React.FC<ShortcutsPanelProps> = ({ isDarkMode }) =>
         borderColor: borderColor,
         zIndex: zIndex.shortcuts
       }}
+      onMouseDown={e => e.stopPropagation()}
+      onWheel={e => e.stopPropagation()}
     >
         <div 
             className="flex items-center justify-between p-2 cursor-pointer"

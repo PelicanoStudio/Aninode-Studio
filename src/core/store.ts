@@ -55,6 +55,8 @@ export type ConnectionDefinition = {
   sourceProp: string
   targetNodeId: string
   targetProp: string
+  // Connection visual type for cable rendering
+  connectionType?: 'BEZIER' | 'DOUBLE' | 'DOTTED' | 'STEP' | 'STRAIGHT'
 }
 
 export type AssetDefinition = {
@@ -132,11 +134,16 @@ export interface EngineStore {
     // Canvas state
     viewport: { x: number; y: number; zoom: number }
     selectedNodeIds: string[]
-    clipboard: NodeDefinition[]
+    clipboard: {
+      nodes: NodeDefinition[]
+      connections: ConnectionDefinition[]
+    }
     // Menus
     isNodePickerOpen: boolean
     activeMenu: 'MAIN' | 'CONNECTION' | 'DISCONNECT' | 'PORT' | null
     menuData: any
+    // Engine Stats display
+    showEngineStats: boolean
     // History
     historyIndex: number
   }
@@ -186,10 +193,11 @@ export const engineStore = proxy<EngineStore>({
     gridType: 'DOTS' as GridType,
     viewport: { x: 0, y: 0, zoom: 1 },
     selectedNodeIds: [],
-    clipboard: [],
+    clipboard: { nodes: [], connections: [] },
     isNodePickerOpen: false,
     activeMenu: null,
     menuData: null,
+    showEngineStats: false, // Hidden by default - toggle with header button
     historyIndex: 0,
   },
   performance: {
@@ -208,6 +216,14 @@ export const storeActions = {
     storeActions.pushHistory()
   },
   removeNode: (nodeId: string) => {
+    // Before deleting, clear overrides this node was providing to other nodes
+    Object.values(engineStore.project.connections).forEach(conn => {
+      if (conn.sourceNodeId === nodeId && engineStore.runtime.overrides[conn.targetNodeId]) {
+        // This connection's source is being deleted - clear the override
+        delete engineStore.runtime.overrides[conn.targetNodeId][conn.targetProp]
+      }
+    })
+    
     delete engineStore.project.nodes[nodeId]
     delete engineStore.runtime.overrides[nodeId]
     delete engineStore.runtime.nodeOutputs[nodeId]
@@ -223,7 +239,20 @@ export const storeActions = {
   updateNodeProps: (nodeId: string, props: Record<string, any>) => {
     const node = engineStore.project.nodes[nodeId]
     if (node) {
-      Object.assign(node.baseProps, props)
+      // Filter out any properties that have active overrides - prevents corruption
+      const overrides = engineStore.runtime.overrides[nodeId]
+      if (overrides) {
+        const safeProps: Record<string, any> = {}
+        for (const [key, value] of Object.entries(props)) {
+          if (!(key in overrides)) {
+            safeProps[key] = value
+          }
+          // Properties with active overrides are silently filtered out
+        }
+        Object.assign(node.baseProps, safeProps)
+      } else {
+        Object.assign(node.baseProps, props)
+      }
     }
   },
   updateNodePosition: (nodeId: string, x: number, y: number) => {
@@ -246,6 +275,13 @@ export const storeActions = {
     storeActions.pushHistory()
   },
   removeConnection: (connId: string) => {
+    const conn = engineStore.project.connections[connId]
+    if (conn) {
+      // Clear the override this connection was providing (revert to baseProps)
+      if (engineStore.runtime.overrides[conn.targetNodeId]) {
+        delete engineStore.runtime.overrides[conn.targetNodeId][conn.targetProp]
+      }
+    }
     delete engineStore.project.connections[connId]
     storeActions.pushHistory()
   },
@@ -304,26 +340,71 @@ export const storeActions = {
     engineStore.ui.activeMenu = menu
     engineStore.ui.menuData = data ?? null
   },
+  setShowEngineStats: (show: boolean) => {
+    engineStore.ui.showEngineStats = show
+  },
 
   // --- Clipboard ---
   copyNodes: (nodeIds: string[]) => {
-    engineStore.ui.clipboard = nodeIds
+    const nodesToCopy = nodeIds
       .map(id => engineStore.project.nodes[id])
       .filter(Boolean)
+    
+    // Also copy connections between selected nodes
+    const connectionsToCopy = Object.values(engineStore.project.connections)
+      .filter(conn => 
+        nodeIds.includes(conn.sourceNodeId) && nodeIds.includes(conn.targetNodeId)
+      )
+    
+    engineStore.ui.clipboard = {
+      nodes: nodesToCopy,
+      connections: connectionsToCopy,
+    }
   },
   pasteNodes: (offsetX = 50, offsetY = 50) => {
+    const { nodes: clipboardNodes, connections: clipboardConns } = engineStore.ui.clipboard
+    if (!clipboardNodes || clipboardNodes.length === 0) return
+    
+    const oldToNewIdMap: Record<string, string> = {}
     const newIds: string[] = []
-    engineStore.ui.clipboard.forEach(node => {
-      const newId = `n_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    // Create new nodes with remapped IDs
+    clipboardNodes.forEach(node => {
+      const typePrefix = node.type.slice(0, 3).toLowerCase()
+      const newId = `${typePrefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      oldToNewIdMap[node.id] = newId
+      newIds.push(newId)
+      
       const newNode: NodeDefinition = {
         ...node,
         id: newId,
         name: node.name + ' (Copy)',
         position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
+        baseProps: {
+          ...node.baseProps,
+          boundProps: {}, // Clear bound props on paste
+        },
       }
       engineStore.project.nodes[newId] = newNode
-      newIds.push(newId)
     })
+    
+    // Recreate connections between pasted nodes
+    clipboardConns.forEach(conn => {
+      const newSourceId = oldToNewIdMap[conn.sourceNodeId]
+      const newTargetId = oldToNewIdMap[conn.targetNodeId]
+      
+      if (newSourceId && newTargetId) {
+        const newConnId = `c_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+        const newConn: ConnectionDefinition = {
+          ...conn,
+          id: newConnId,
+          sourceNodeId: newSourceId,
+          targetNodeId: newTargetId,
+        }
+        engineStore.project.connections[newConnId] = newConn
+      }
+    })
+    
     engineStore.ui.selectedNodeIds = newIds
     storeActions.pushHistory()
   },
@@ -345,7 +426,7 @@ export const storeActions = {
       const snapshot = engineStore.history[engineStore.ui.historyIndex]
       engineStore.project.nodes = JSON.parse(JSON.stringify(snapshot.nodes))
       engineStore.project.connections = JSON.parse(JSON.stringify(snapshot.connections))
-      engineStore.ui.selectedNodeIds = []
+      // Selection preserved - don't clear selectedNodeIds
     }
   },
   redo: () => {
@@ -354,7 +435,7 @@ export const storeActions = {
       const snapshot = engineStore.history[engineStore.ui.historyIndex]
       engineStore.project.nodes = JSON.parse(JSON.stringify(snapshot.nodes))
       engineStore.project.connections = JSON.parse(JSON.stringify(snapshot.connections))
-      engineStore.ui.selectedNodeIds = []
+      // Selection preserved - don't clear selectedNodeIds
     }
   },
 
@@ -367,3 +448,10 @@ export const storeActions = {
 // Legacy Compatibility (Deprecated)
 // Allows unmigrated files to compile (runtime may vary)
 export const aninodeStore = engineStore as unknown as any
+
+// === DEBUGGING: Expose to window for console access ===
+if (typeof window !== 'undefined') {
+  (window as any).engineStore = engineStore;
+  (window as any).storeActions = storeActions;
+  console.log('🔧 DEBUG: engineStore and storeActions exposed to window. Try: engineStore.runtime.nodeOutputs');
+}

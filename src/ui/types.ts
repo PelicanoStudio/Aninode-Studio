@@ -8,7 +8,8 @@ export enum NodeType {
   SLIDER = 'SLIDER',
   NUMBER = 'NUMBER',
   BOOLEAN = 'BOOLEAN',
-  CLONE = 'CLONE'
+  CLONE = 'CLONE',
+  DEBUG = 'DEBUG'
 }
 
 export enum ConnectionType {

@@ -56,9 +56,9 @@ export function connectionToDefinition(conn: Connection): ConnectionDefinition {
   return {
     id: conn.id,
     sourceNodeId: conn.source,
-    sourceProp: 'output', // Default output prop
+    sourceProp: 'value', // Default output prop (matches nodeOutputs[id].value)
     targetNodeId: conn.target,
-    targetProp: 'input', // Default input prop
+    targetProp: 'value', // Default input prop (writes to overrides[id].value)
   }
 }
 
@@ -66,11 +66,20 @@ export function connectionToDefinition(conn: Connection): ConnectionDefinition {
  * Convert Engine ConnectionDefinition to UI Connection
  */
 export function definitionToConnection(def: ConnectionDefinition): Connection {
+  // Map stored connectionType to UI ConnectionType enum
+  const typeMap: Record<string, ConnectionType> = {
+    'BEZIER': ConnectionType.BEZIER,
+    'DOUBLE': ConnectionType.DOUBLE,
+    'DOTTED': ConnectionType.DOTTED,
+    'STEP': ConnectionType.STEP,
+    'STRAIGHT': ConnectionType.STRAIGHT,
+  }
+  
   return {
     id: def.id,
     source: def.sourceNodeId,
     target: def.targetNodeId,
-    type: ConnectionType.BEZIER, // Default connection type for UI
+    type: typeMap[def.connectionType || 'BEZIER'] || ConnectionType.BEZIER,
   }
 }
 
@@ -88,4 +97,5 @@ export const nodeTypeMap: Record<NodeType, string> = {
   [NodeType.NUMBER]: 'NUMBER',
   [NodeType.BOOLEAN]: 'BOOLEAN',
   [NodeType.CLONE]: 'CLONE',
+  [NodeType.DEBUG]: 'DEBUG',
 }

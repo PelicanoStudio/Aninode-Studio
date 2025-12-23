@@ -6,8 +6,12 @@ import {
 } from '@/tokens';
 import { useLongPress } from '@/ui/hooks/useLongPress';
 import { NodeData, NodeType } from '@/ui/types';
+import { resolveProperty } from '@core/resolveProperty';
+import { engineStore } from '@core/store';
 import { Copy } from 'lucide-react';
 import React from 'react';
+import { useSnapshot } from 'valtio';
+import { DebugContent } from './DebugContent';
 import { Visualizer } from './Visualizer';
 
 interface NodeContentProps {
@@ -25,6 +29,9 @@ export const NodeContent: React.FC<NodeContentProps> = ({
   pushHistory,
   onPropertyContextMenu
 }) => {
+  // Subscribe to runtime overrides for reactive updates when connections change values
+  const snap = useSnapshot(engineStore);
+  const _overrides = snap.runtime.overrides[node.id]; // Triggers re-render on override change
   const handleLongPress = (propKey: string) => {
       return useLongPress((e) => {
           const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -42,12 +49,24 @@ export const NodeContent: React.FC<NodeContentProps> = ({
   const inputBorderClass = isDarkMode ? 'border-white/20 text-white' : 'border-black/20 text-black';
 
   switch(node.type) {
-      case NodeType.OSCILLATOR:
+      case NodeType.OSCILLATOR: {
+          // Read resolved values (includes overrides from connections)
+          const resolvedFrequency = resolveProperty(node.id, 'frequency', node.config.frequency || 1);
+          const resolvedWaveform = resolveProperty(node.id, 'waveform', node.config.waveform || 'sine');
           return (
-              <div className="w-full h-full flex flex-col">
-                  <Visualizer type="sine" frequency={node.config.frequency || 1} amplitude={node.config.amplitude || 1} active={true} isDarkMode={isDarkMode} />
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                  <Visualizer 
+                    mode="static"
+                    type="sine" 
+                    waveform={resolvedWaveform}
+                    frequency={resolvedFrequency} 
+                    amplitude={1} 
+                    active={node.config?.enabled !== false} 
+                    isDarkMode={isDarkMode} 
+                  />
               </div>
           );
+      }
       case NodeType.PICKER:
           return (
               <div 
@@ -115,6 +134,8 @@ export const NodeContent: React.FC<NodeContentProps> = ({
           );
       case NodeType.CLONE:
           return <div className="h-8 flex items-center justify-center gap-2 opacity-50"><Copy size={iconSizes.sm} /><span className="text-xs font-mono">Linked Instance</span></div>;
+      case NodeType.DEBUG:
+          return <DebugContent nodeId={node.id} config={node.config} />;
       default: return <div className="h-8 flex items-center justify-center text-xs opacity-30 font-mono uppercase">{node.type}</div>;
   }
 };
